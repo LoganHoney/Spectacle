@@ -1,7 +1,8 @@
 import * as store from '../core/store.js';
-import { html, raw, esc, on, setTopbar, sheet, toast, confirmSheet, fmtDate } from '../core/ui.js';
+import { html, raw, esc, on, setTopbar, sheet, toast, confirmSheet, fmtDate, debounce } from '../core/ui.js';
 import { go } from '../core/router.js';
 import { statusCls } from './dashboard.js';
+import { searchAddress } from '../core/geocode.js';
 
 export async function clientList(view) {
   const clients = await store.listClients();
@@ -145,7 +146,8 @@ function editClientSheet(client) {
 function editPropertySheet(p) {
   return sheet(p.address ? 'Edit Property' : 'New Property', (body, close) => {
     body.innerHTML = html`
-      <label class="f"><span>Street address</span><input type="text" data-k="address" value="${esc(p.address)}"></label>
+      <label class="f"><span>Street address</span><input type="text" data-k="address" value="${esc(p.address)}" autocomplete="off"></label>
+      <div class="opts" data-address-suggestions style="margin:-6px 0 10px"></div>
       <div class="grid2">
         <label class="f"><span>City</span><input type="text" data-k="city" value="${esc(p.city)}"></label>
         <label class="f"><span>Zip</span><input type="text" data-k="zip" value="${esc(p.zip)}"></label>
@@ -168,6 +170,31 @@ function editPropertySheet(p) {
         <select data-k="foundation">${raw(['Slab on grade', 'Stem wall', 'Crawlspace', 'Pier & beam', 'Basement'].map((o) =>
           `<option ${o === p.foundation ? 'selected' : ''}>${esc(o)}</option>`).join(''))}</select></label>
       <button class="btn primary wide" data-save>Save Property</button>`;
+
+    const addressEl = body.querySelector('[data-k="address"]');
+    const suggestionsEl = body.querySelector('[data-address-suggestions]');
+    let candidates = [];
+    const runSearch = debounce(async (query) => {
+      candidates = await searchAddress(query);
+      suggestionsEl.innerHTML = candidates.map((c, i) =>
+        `<button type="button" data-suggestion="${i}">${esc(c.address || c.label)}<div class="small muted">${esc([c.city, c.state, c.zip].filter(Boolean).join(', '))}</div></button>`).join('');
+    }, 500);
+    addressEl.addEventListener('input', () => {
+      suggestionsEl.innerHTML = '';
+      if (addressEl.value.trim().length >= 5) runSearch(addressEl.value);
+    });
+    on(suggestionsEl, 'click', '[data-suggestion]', (_e, el) => {
+      const c = candidates[Number(el.dataset.suggestion)];
+      if (!c) return;
+      addressEl.value = c.address || addressEl.value;
+      const setIf = (key, val) => { if (val) body.querySelector(`[data-k="${key}"]`).value = val; };
+      setIf('city', c.city);
+      setIf('state', c.state);
+      setIf('zip', c.zip);
+      setIf('county', c.county);
+      suggestionsEl.innerHTML = '';
+    });
+
     body.querySelector('[data-save]').onclick = () => {
       const out = { ...p };
       body.querySelectorAll('[data-k]').forEach((el) => { out[el.dataset.k] = el.value.trim(); });

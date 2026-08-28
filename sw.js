@@ -2,7 +2,7 @@
 // changes so returning devices pick up the update instead of serving stale
 // JS forever — that's the whole point of the cache-first strategy below.
 
-const CACHE_VERSION = 'hi-v31';
+const CACHE_VERSION = 'hi-v32';
 const CACHE_NAME = `hernando-inspections-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -20,6 +20,7 @@ const PRECACHE = [
   'js/app.js',
   'js/core/backup.js',
   'js/core/db.js',
+  'js/core/geocode.js',
   'js/core/media.js',
   'js/core/merge.js',
   'js/core/router.js',
