@@ -212,6 +212,15 @@ export async function inspectionWorkspace(view, { id }) {
       </div>
 
       <div class="card">
+        <div class="spread" style="margin-bottom:8px">
+          <h3 style="margin:0">Inspection Cost</h3>
+          <span class="pill ${inspection.paid ? 'ok' : ''}" data-paid-toggle style="cursor:pointer">${inspection.paid ? 'Paid' : 'Unpaid'}</span>
+        </div>
+        <label class="f"><span>Fee ($)</span><input type="number" inputmode="decimal" data-cost value="${esc(inspection.fee || '')}" placeholder="e.g. 450"></label>
+        <div class="small muted" style="margin-top:6px">Feeds the {TotalAmount} field in the Inspection Agreement.</div>
+      </div>
+
+      <div class="card">
         <div class="spread" style="margin-bottom:${jobContacts.length ? '10px' : '0'}">
           <h3 style="margin:0">Contacts on This Job</h3>
           <button class="btn sm ghost" data-add-contact>+ Add</button>
@@ -277,6 +286,17 @@ export async function inspectionWorkspace(view, { id }) {
       await editJobSheet();
     };
 
+    view.querySelector('[data-cost]').addEventListener('input', (e) => {
+      inspection.fee = e.target.value;
+      persist();
+    });
+
+    view.querySelector('[data-paid-toggle]').onclick = async () => {
+      inspection.paid = !inspection.paid;
+      await persistNow();
+      render();
+    };
+
     view.querySelector('[data-add-contact]').onclick = async () => {
       const all = await store.listContacts();
       const already = new Set(inspection.jobContacts || []);
@@ -325,10 +345,7 @@ export async function inspectionWorkspace(view, { id }) {
           <label class="f"><span>Scheduled date</span><input type="date" data-date value="${esc(inspection.scheduledAt || '')}"></label>
           <label class="f"><span>Time</span><input type="time" data-time value="${esc(inspection.scheduledTime || '')}"></label>
         </div>
-        <div class="grid2">
-          <label class="f"><span>Inspector</span><input type="text" data-insp value="${esc(inspection.inspectorName || '')}"></label>
-          <label class="f"><span>Fee ($)</span><input type="number" data-fee value="${esc(inspection.fee || '')}"></label>
-        </div>
+        <label class="f"><span>Inspector</span><input type="text" data-insp value="${esc(inspection.inspectorName || '')}"></label>
         <label class="f"><span>Attendees</span><input type="text" data-att value="${esc(inspection.attendees || '')}" placeholder="Buyer, buyer's agent, seller…"></label>
         <button class="btn primary wide" data-save>Save</button>`;
       on(body, 'click', '[data-svc] [data-v]', (_e, el) => {
@@ -345,7 +362,6 @@ export async function inspectionWorkspace(view, { id }) {
         inspection.scheduledAt = body.querySelector('[data-date]').value;
         inspection.scheduledTime = body.querySelector('[data-time]').value;
         inspection.inspectorName = body.querySelector('[data-insp]').value.trim();
-        inspection.fee = body.querySelector('[data-fee]').value;
         inspection.attendees = body.querySelector('[data-att]').value.trim();
         await persistNow();
         close(true);
