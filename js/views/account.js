@@ -1,4 +1,5 @@
 import * as supabaseClient from '../core/supabaseClient.js';
+import * as sync from '../core/sync.js';
 import { html, raw, esc, setTopbar, toast } from '../core/ui.js';
 import { go } from '../core/router.js';
 
@@ -30,7 +31,7 @@ export async function accountView(view) {
         <div class="small muted">Signed in as</div>
         <div style="font-weight:700;font-size:16px">${esc(session.user.email)}</div>
       </div>
-      <div class="note small">Your inspections, clients, and settings sync to this account across every device you sign into. Turning it on for existing data happens in a later step — signing in alone doesn't move anything yet.</div>
+      <div class="note small">Settings now sync to this account across every device you sign into. Clients, inspections, and photos are next — those still stay local-only for the moment.</div>
       <button class="btn danger wide" data-sign-out style="margin-top:14px">Sign Out</button>
     `;
     view.querySelector('[data-sign-out]').onclick = async () => {
@@ -55,7 +56,8 @@ export async function accountView(view) {
       toast('Signing in…', 10000);
       try {
         await supabaseClient.signInQuick(email);
-        toast('Signed in');
+        await sync.syncSettingsOnSignIn();
+        toast('Signed in — settings synced');
         draw();
       } catch (err) {
         console.error(err);

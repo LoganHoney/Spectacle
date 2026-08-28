@@ -1,6 +1,8 @@
 import * as store from '../core/store.js';
 import * as dbcore from '../core/db.js';
 import * as backup from '../core/backup.js';
+import * as supabaseClient from '../core/supabaseClient.js';
+import * as sync from '../core/sync.js';
 import { pickFiles } from '../core/media.js';
 import { DEFAULT_AGREEMENT } from '../report/agreement.js';
 import { EMAIL_TEMPLATE_TYPES, getEmailTemplate } from '../report/emailTemplates.js';
@@ -14,11 +16,19 @@ export async function settingsView(view) {
   // same 400ms window silently drop whichever one wasn't typed last. Debounce
   // per field instead — each field's pending save is independent.
   const fieldDebouncers = new Map();
+  // Separate, slightly longer debounce for the cloud push — batches multiple
+  // quick field edits into one network call instead of one per field. Local
+  // save (above) always happens regardless of sign-in state or connectivity;
+  // this is a best-effort side-channel on top of it, never a blocker.
+  const pushCloud = debounce(() => {
+    sync.pushSettingsToCloud().catch((err) => console.warn('Cloud settings sync failed', err));
+  }, 800);
   function persist(patch) {
     for (const [key, value] of Object.entries(patch)) {
       if (!fieldDebouncers.has(key)) fieldDebouncers.set(key, debounce((v) => store.saveSettings({ [key]: v }), 400));
       fieldDebouncers.get(key)(value);
     }
+    if (supabaseClient.isConfigured()) pushCloud();
   }
   const defaultAgreementPlaceholder = DEFAULT_AGREEMENT;
 
@@ -150,7 +160,11 @@ export async function settingsView(view) {
   if (editing) {
     mountSignaturePad(view.querySelector('#sig-default-host'), {
       value: settings.savedSignature,
-      onChange: (dataUrl) => { settings.savedSignature = dataUrl; store.saveSettings({ savedSignature: dataUrl }); },
+      onChange: (dataUrl) => {
+        settings.savedSignature = dataUrl;
+        store.saveSettings({ savedSignature: dataUrl });
+        if (supabaseClient.isConfigured()) pushCloud();
+      },
     });
   }
 
@@ -166,6 +180,7 @@ export async function settingsView(view) {
   view.querySelector('[data-reset-agreement]')?.addEventListener('click', async () => {
     settings.agreementTemplate = '';
     await store.saveSettings({ agreementTemplate: '' });
+    if (supabaseClient.isConfigured()) pushCloud();
     toast('Agreement text reset to default');
     draw();
   });
@@ -188,6 +203,7 @@ export async function settingsView(view) {
       delete current[key];
       settings.emailTemplates = current;
       await store.saveSettings({ emailTemplates: current });
+      if (supabaseClient.isConfigured()) pushCloud();
       toast('Template reset to default');
       draw();
     };
@@ -199,12 +215,14 @@ export async function settingsView(view) {
     const dataUrl = await fileToCompressedDataUrl(file);
     settings.logoDataUrl = dataUrl;
     await store.saveSettings({ logoDataUrl: dataUrl });
+    if (supabaseClient.isConfigured()) pushCloud();
     toast('Logo saved');
     draw();
   });
   view.querySelector('[data-logo-clear]')?.addEventListener('click', async () => {
     settings.logoDataUrl = '';
     await store.saveSettings({ logoDataUrl: '' });
+    if (supabaseClient.isConfigured()) pushCloud();
     draw();
   });
 

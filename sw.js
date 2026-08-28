@@ -2,7 +2,7 @@
 // changes so returning devices pick up the update instead of serving stale
 // JS forever — that's the whole point of the cache-first strategy below.
 
-const CACHE_VERSION = 'hi-v30';
+const CACHE_VERSION = 'hi-v31';
 const CACHE_NAME = `hernando-inspections-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -32,6 +32,7 @@ const PRECACHE = [
   'js/forms/windmit.js',
   'js/core/reportClient.js',
   'js/core/supabaseClient.js',
+  'js/core/sync.js',
   'js/report/agreement.js',
   'js/report/comments.js',
   'js/report/emailTemplates.js',

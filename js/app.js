@@ -1,6 +1,7 @@
 import * as db from './core/db.js';
 import * as store from './core/store.js';
 import * as supabaseClient from './core/supabaseClient.js';
+import * as sync from './core/sync.js';
 import { $$ } from './core/ui.js';
 import { route, start, currentPath, go } from './core/router.js';
 
@@ -65,10 +66,26 @@ async function boot() {
   document.getElementById('tabbar').hidden = false;
   view.hidden = false;
 
-  // Catch a magic-link redirect the moment the app loads, not just when the
-  // user happens to open Account — getClient() with detectSessionInUrl:true
-  // consumes the token from the URL as a side effect of initializing.
-  if (supabaseClient.isConfigured()) supabaseClient.getClient().catch((err) => console.warn('Supabase init failed', err));
+  // If already signed in from a previous visit (or another device signed
+  // into the same account), pull the latest cloud settings down now rather
+  // than waiting for the user to happen to open Account.
+  if (supabaseClient.isConfigured()) {
+    supabaseClient.getSession()
+      .then((session) => (session ? sync.pullSettingsFromCloud() : null))
+      .catch((err) => console.warn('Supabase settings sync failed', err));
+
+    // A settings edit made while offline saves locally fine, but the debounced
+    // cloud push it also tried to fire simply fails silently with no retry —
+    // without this, that edit would only ever reach the cloud if the user
+    // happened to edit something else again later. Push (not pull) on
+    // reconnect: local edits made while offline should go up, not get
+    // overwritten by a now-stale cloud copy.
+    window.addEventListener('online', () => {
+      supabaseClient.getSession()
+        .then((session) => (session ? sync.pushSettingsToCloud() : null))
+        .catch((err) => console.warn('Supabase settings sync failed', err));
+    });
+  }
 
   start(updateTabbar);
 
