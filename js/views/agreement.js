@@ -156,20 +156,7 @@ export async function agreementView(view, { id }) {
   view.querySelector('[data-send-remote]')?.addEventListener('click', async () => {
     toast('Creating signing link…', 15000);
     try {
-      const { token, signUrl } = await signing.createAgreement(settings, {
-        agreementText: mergedText,
-        propertyAddress: property ? store.propertyLabel(property) : '',
-        clientName: client?.name || '',
-        companyName: settings.companyName || '',
-        inspectorName: inspection.inspectorName || settings.inspectorName || '',
-        customer1Name: agreement.customer1Name || client?.name || '',
-        customer2Name: agreement.customer2Name || '',
-      });
-      agreement.remoteToken = token;
-      agreement.remoteSignUrl = signUrl;
-      agreement.remoteSentAt = Date.now();
-      await store.saveInspection(inspection);
-      await shareLink(signUrl, shareTitle, `${shareText}\n\n${signUrl}`);
+      await sendRemoteSigningLink(hydrated);
       agreementView(view, { id });
     } catch (err) {
       console.error(err);
@@ -218,6 +205,45 @@ export async function agreementView(view, { id }) {
     toast('Remote signing cancelled');
     agreementView(view, { id });
   });
+}
+
+/**
+ * Creates a remote-signing link and hands it straight to the native share
+ * sheet, pre-filled with the "Pre-Inspection Agreement" email template plus
+ * the link itself — used both by the button on the Agreement page and by the
+ * quick-action on the main job page. Throws if no signing server is set up.
+ */
+export async function sendRemoteSigningLink({ inspection, client, property, settings }) {
+  if (!signing.isConfigured(settings)) throw new Error('No signing server configured — set one in Setup.');
+  const template = settings.agreementTemplate || DEFAULT_AGREEMENT;
+  const mergedText = mergeAgreement(template, { inspection, client, property, settings });
+  const agreement = inspection.agreement || {
+    inspectorSignature: '', inspectorSignedAt: '',
+    customer1Name: client?.name || '', customer1Signature: '', customer1SignedAt: '',
+    customer2Name: '', customer2Signature: '', customer2SignedAt: '',
+    remoteToken: '', remoteSignUrl: '', remoteSentAt: '',
+  };
+  inspection.agreement = agreement;
+
+  const emailTpl = getEmailTemplate(settings, 'preinspection');
+  const fields = buildMergeContext({ inspection, client, property, settings });
+  const shareTitle = mergeText(emailTpl.subject, fields);
+  const shareText = mergeText(emailTpl.body, fields);
+
+  const { token, signUrl } = await signing.createAgreement(settings, {
+    agreementText: mergedText,
+    propertyAddress: property ? store.propertyLabel(property) : '',
+    clientName: client?.name || '',
+    companyName: settings.companyName || '',
+    inspectorName: inspection.inspectorName || settings.inspectorName || '',
+    customer1Name: agreement.customer1Name || client?.name || '',
+    customer2Name: agreement.customer2Name || '',
+  });
+  agreement.remoteToken = token;
+  agreement.remoteSignUrl = signUrl;
+  agreement.remoteSentAt = Date.now();
+  await store.saveInspection(inspection);
+  await shareLink(signUrl, shareTitle, `${shareText}\n\n${signUrl}`);
 }
 
 async function shareLink(url, title, text) {

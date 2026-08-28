@@ -7,6 +7,8 @@ import { editContactSheet } from './contacts.js';
 import { isFlagged } from './checklist.js';
 import { FORM_MENU, getForm, completion } from '../forms/engine.js';
 import { statusCls } from './dashboard.js';
+import { sendRemoteSigningLink } from './agreement.js';
+import * as signing from '../core/signingClient.js';
 
 function agreementStatus(inspection) {
   const a = inspection.agreement;
@@ -239,6 +241,9 @@ export async function inspectionWorkspace(view, { id }) {
           <span class="pill ${agreementStatus(inspection).cls}">${agreementStatus(inspection).label}</span>
           <span class="chev">&#8250;</span></a>
       </div>
+      ${raw(signing.isConfigured(settings) && !(inspection.agreement?.customer1Signature)
+        ? '<button class="btn wide" data-email-agreement style="margin:-4px 0 14px">Email Client — Send Agreement to Sign</button>'
+        : '')}
 
       <h2>Insurance Forms</h2>
       <div class="list">
@@ -285,6 +290,17 @@ export async function inspectionWorkspace(view, { id }) {
     view.querySelector('[data-edit-job]').onclick = async () => {
       await editJobSheet();
     };
+
+    view.querySelector('[data-email-agreement]')?.addEventListener('click', async () => {
+      toast('Creating signing link…', 15000);
+      try {
+        await sendRemoteSigningLink({ inspection, client, property, settings });
+        render();
+      } catch (err) {
+        console.error(err);
+        toast(`Could not create signing link: ${err.message}`);
+      }
+    });
 
     view.querySelector('[data-cost]').addEventListener('input', (e) => {
       inspection.fee = e.target.value;
