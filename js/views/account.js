@@ -44,26 +44,22 @@ export async function accountView(view) {
     view.innerHTML = html`
       <div class="card stack">
         <label class="f"><span>Email address</span><input type="email" inputmode="email" autocapitalize="off" autocorrect="off" data-email placeholder="you@example.com"></label>
-        <button class="btn primary wide" data-send>Send Sign-In Link</button>
+        <button class="btn primary wide" data-continue>Continue</button>
       </div>
-      <div class="note small">No password — we'll email you a link. Tap it on this device to sign in, and you'll stay signed in.</div>
+      <div class="note small">No verification step right now — entering an email signs straight into that account. This is a temporary, deliberately loose setup; tighten it later before this is used by anyone but you.</div>
     `;
     const emailEl = view.querySelector('[data-email]');
-    view.querySelector('[data-send]').onclick = async () => {
+    view.querySelector('[data-continue]').onclick = async () => {
       const email = emailEl.value.trim();
       if (!email || !email.includes('@')) { toast('Enter a valid email address'); return; }
-      toast('Sending…', 10000);
+      toast('Signing in…', 10000);
       try {
-        await supabaseClient.signInWithEmail(email);
-        view.innerHTML = html`
-          <div class="empty">
-            <div class="big">&#9993;</div>
-            <p><strong>Check your email.</strong></p>
-            <p class="small">Tap the sign-in link sent to ${esc(email)} — it'll bring you right back here, signed in.</p>
-          </div>`;
+        await supabaseClient.signInQuick(email);
+        toast('Signed in');
+        draw();
       } catch (err) {
         console.error(err);
-        toast(`Could not send the link: ${err.message}`);
+        toast(`Could not sign in: ${err.message}`);
       }
     };
   }

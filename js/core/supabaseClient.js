@@ -49,15 +49,30 @@ export function isConfigured() {
   return !SUPABASE_URL.startsWith('PLACEHOLDER') && !SUPABASE_ANON_KEY.startsWith('PLACEHOLDER');
 }
 
-/** Sends a magic-link email. redirectTo defaults to this app's own URL, so the link brings the client back here signed in. */
-export async function signInWithEmail(email) {
+// TEMPORARY, by explicit request: no email verification at all — typing an
+// email creates-or-signs-into that account immediately using this fixed
+// shared password, so "prove you own this email" is skipped entirely. Anyone
+// who knows (or guesses) an email used here can access that account's data.
+// Requires "Confirm email" turned OFF in Supabase (Authentication ->
+// Providers -> Email), or signUp below will sit unconfirmed and unusable.
+// To harden this later: switch back to signInWithOtp (still in git history)
+// or add a real per-user password, and turn "Confirm email" back on.
+const QUICK_ACCESS_PASSWORD = 'hernando-quick-access-2026';
+
+/** Creates the account on first use, signs in on every use after — no link, no verification step. */
+export async function signInQuick(email) {
   const client = await getClient();
   if (!client) throw new Error('Cloud account isn\'t set up yet.');
-  const { error } = await client.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: location.origin + location.pathname },
-  });
-  if (error) throw error;
+
+  const signIn = await client.auth.signInWithPassword({ email, password: QUICK_ACCESS_PASSWORD });
+  if (!signIn.error) return signIn.data.session;
+
+  const signUp = await client.auth.signUp({ email, password: QUICK_ACCESS_PASSWORD });
+  if (signUp.error) throw signUp.error;
+  if (!signUp.data.session) {
+    throw new Error('Account created but not signed in — check that "Confirm email" is turned off in Supabase.');
+  }
+  return signUp.data.session;
 }
 
 export async function signOut() {
