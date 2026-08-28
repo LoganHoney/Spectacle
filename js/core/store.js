@@ -49,7 +49,7 @@ const SETTINGS_DEFAULTS = {
   reportFooter: 'This report is the exclusive property of the inspection company and the client named herein.',
   agreementTemplate: '',
   emailTemplates: {},
-  signingApiUrl: '',
+  signingApiUrl: 'https://spectacle-1ipx.onrender.com',
   savedSignature: '',
   photoMaxEdge: 1600,
   photoQuality: 0.72,

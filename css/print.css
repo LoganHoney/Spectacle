@@ -4,33 +4,38 @@
 .rp-root{
   --rp-ink:#1a1a1a; --rp-muted:#5b6472; --rp-line:#dfe3e8; --rp-bg:#fff; --rp-accent:#c0392b;
   background:var(--rp-bg); color:var(--rp-ink);
-  font:15px/1.55 Georgia,'Times New Roman',serif;
+  font:15px/1.55 Arial, Helvetica, sans-serif;
   max-width:850px;margin:0 auto;padding:28px 22px;
 }
-.rp-root h1,.rp-root h2,.rp-root h3,.rp-root h4{font-family:-apple-system,'Segoe UI',Roboto,sans-serif}
+.rp-root h1,.rp-root h2,.rp-root h3,.rp-root h4{font-family:Arial, Helvetica, sans-serif}
 
 .rp-logo-fallback{width:52px;height:52px;border-radius:12px;background:#0f172a;color:#fff;
-  display:grid;place-content:center;font-weight:800;font-family:-apple-system,sans-serif;flex:0 0 auto;margin:0 auto}
+  display:grid;place-content:center;font-weight:800;font-family:Arial, Helvetica, sans-serif;flex:0 0 auto;margin:0 auto}
 .rp-small,.rp-muted{color:var(--rp-muted);font-size:12.5px}
-.rp-code{color:var(--rp-muted);font-weight:700;letter-spacing:.04em;font-family:-apple-system,sans-serif;margin-bottom:14px;font-size:12.5px}
+.rp-code{color:var(--rp-muted);font-weight:700;letter-spacing:.04em;font-family:Arial, Helvetica, sans-serif;margin-bottom:14px;font-size:12.5px}
 
-/* ---------------- cover sheet ---------------- */
-.rp-cover2{text-align:center;max-width:480px;margin:0 auto;padding:36px 10px 24px}
-.rp-cover2-logo{margin:0 0 24px}
-.rp-cover2-logo-img{max-height:92px;max-width:280px;object-fit:contain}
-.rp-cover2-logo-bottom{margin:34px 0 0}
-.rp-cover2-logo-bottom .rp-cover2-logo-img{max-height:64px}
-.rp-cover2-title{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:25px;font-weight:800;
-  color:var(--rp-accent);margin:0 0 20px;letter-spacing:-.01em}
-.rp-cover2-block{margin:0 0 18px}
-.rp-cover2-label{font-family:-apple-system,sans-serif;font-weight:800;font-size:12.5px;
-  text-transform:uppercase;letter-spacing:.03em;color:var(--rp-ink);margin-bottom:4px}
-.rp-cover2-value{font-size:15px;line-height:1.4}
-.rp-cover2-photo{width:100%;max-width:420px;border-radius:4px;display:block;object-fit:cover;
-  max-height:280px;margin:6px auto 22px;box-shadow:0 1px 5px rgba(0,0,0,.18)}
-.rp-cover2-inspector{font-size:14px;line-height:1.6;margin-top:2px}
+/* ---------------- cover sheet ----------------
+   Sized so the PDF export (js/report/pdf.js — measured empirically, not
+   assumed) clears one page with margin to spare. The browser's native print
+   dialog has a smaller usable area per page (@page margin below eats into
+   it), so it gets its own tighter override further down rather than shrinking
+   the photo for everyone just to satisfy print's stricter budget. */
+.rp-cover2{text-align:center;max-width:100%;margin:0 auto;padding:14px 10px 8px;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid}
+.rp-cover2-logo{margin:0 0 10px}
+.rp-cover2-logo-img{max-height:56px;max-width:210px;object-fit:contain}
+.rp-cover2-logo-bottom{margin:12px 0 0}
+.rp-cover2-logo-bottom .rp-cover2-logo-img{max-height:36px}
+.rp-cover2-title{font-family:Arial, Helvetica, sans-serif;font-size:20px;font-weight:800;
+  color:var(--rp-accent);margin:0 0 11px;letter-spacing:-.01em}
+.rp-cover2-block{margin:0 0 9px}
+.rp-cover2-label{font-family:Arial, Helvetica, sans-serif;font-weight:800;font-size:12px;
+  text-transform:uppercase;letter-spacing:.03em;color:var(--rp-ink);margin-bottom:2px}
+.rp-cover2-value{font-size:13.5px;line-height:1.3}
+.rp-cover2-photo{width:100%;max-width:320px;border-radius:4px;display:block;object-fit:cover;
+  max-height:130px;margin:2px auto 11px;box-shadow:0 1px 5px rgba(0,0,0,.18)}
+.rp-cover2-inspector{font-size:13px;line-height:1.35;margin-top:0}
 
-.rp-jump{background:#f4f6fa;border:1px solid var(--rp-line);border-radius:10px;padding:14px 16px;margin:0 0 22px;font-family:-apple-system,sans-serif}
+.rp-jump{background:#f4f6fa;border:1px solid var(--rp-line);border-radius:10px;padding:14px 16px;margin:0 0 22px;font-family:Arial, Helvetica, sans-serif}
 .rp-jump-title{font-size:11px;font-weight:700;color:var(--rp-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
 .rp-jump-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:5px 16px}
 .rp-jump-grid a{font-size:13.5px;color:#1d4ed8;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -38,26 +43,26 @@
 .rp-jump-grid a.rp-jump-sub{padding-left:14px;color:#475569;font-size:12.5px}
 
 .rp-block{margin:26px 0;page-break-inside:avoid}
-.rp-h2{font-size:19px;border-bottom:2px solid var(--rp-ink);padding-bottom:6px;margin:0 0 12px;font-family:-apple-system,sans-serif;scroll-margin-top:calc(var(--sat, 0px) + 76px)}
-.rp-h3{font-size:15.5px;margin:18px 0 6px;font-family:-apple-system,sans-serif;scroll-margin-top:calc(var(--sat, 0px) + 76px)}
-.rp-h4{font-size:13.5px;margin:12px 0 5px;font-family:-apple-system,sans-serif;color:var(--rp-muted);text-transform:uppercase;letter-spacing:.04em;scroll-margin-top:calc(var(--sat, 0px) + 76px)}
+.rp-h2{font-size:19px;border-bottom:2px solid var(--rp-ink);padding-bottom:6px;margin:0 0 12px;font-family:Arial, Helvetica, sans-serif;scroll-margin-top:calc(var(--sat, 0px) + 76px)}
+.rp-h3{font-size:15.5px;margin:18px 0 6px;font-family:Arial, Helvetica, sans-serif;scroll-margin-top:calc(var(--sat, 0px) + 76px)}
+.rp-h4{font-size:13.5px;margin:12px 0 5px;font-family:Arial, Helvetica, sans-serif;color:var(--rp-muted);text-transform:uppercase;letter-spacing:.04em;scroll-margin-top:calc(var(--sat, 0px) + 76px)}
 .rp-body{margin:6px 0;font-size:14px}
 .rp-section{page-break-inside:avoid;margin-bottom:14px}
 .rp-section-intro{margin:-2px 0 8px}
 
 .rp-sevrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
-.rp-sevstat{border:1.5px solid;border-radius:10px;padding:8px 16px;text-align:center;font-family:-apple-system,sans-serif}
+.rp-sevstat{border:1.5px solid;border-radius:10px;padding:8px 16px;text-align:center;font-family:Arial, Helvetica, sans-serif}
 .rp-sevn{font-size:22px;font-weight:800;line-height:1.1}
 .rp-sevl{font-size:11px;font-weight:700;color:var(--rp-muted);text-transform:uppercase;letter-spacing:.03em}
 
 .rp-finding{border-left:4px solid #999;padding:10px 14px;margin:0 0 14px;background:#fafafa;border-radius:0 8px 8px 0;page-break-inside:avoid}
-.rp-finding-h{font-family:-apple-system,sans-serif;font-size:14.5px;margin-bottom:4px}
+.rp-finding-h{font-family:Arial, Helvetica, sans-serif;font-size:14.5px;margin-bottom:4px}
 .rp-sevtag{display:inline-block;color:#fff;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;
-  font-family:-apple-system,sans-serif;margin-right:6px;vertical-align:middle}
-.rp-rating{font-family:-apple-system,sans-serif;font-size:12.5px;color:var(--rp-muted);margin:2px 0 4px}
+  font-family:Arial, Helvetica, sans-serif;margin-right:6px;vertical-align:middle}
+.rp-rating{font-family:Arial, Helvetica, sans-serif;font-size:12.5px;color:var(--rp-muted);margin:2px 0 4px}
 
 .rp-item{border-top:1px solid var(--rp-line);padding:10px 0;page-break-inside:avoid}
-.rp-item-row{display:flex;justify-content:space-between;gap:14px;font-family:-apple-system,sans-serif}
+.rp-item-row{display:flex;justify-content:space-between;gap:14px;font-family:Arial, Helvetica, sans-serif}
 .rp-item-label{font-weight:600;font-size:14px}
 .rp-item-val{font-size:13px;color:var(--rp-muted);font-weight:600;white-space:nowrap}
 .rp-item-note{font-size:13.5px}
@@ -65,11 +70,11 @@
 .rp-mediagrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:8px}
 .rp-media{margin:0;break-inside:avoid}
 .rp-media img,.rp-media video{width:100%;border-radius:8px;display:block;object-fit:cover;max-height:220px;border:1px solid var(--rp-line)}
-.rp-media figcaption{font-size:11px;color:var(--rp-muted);margin-top:3px;font-family:-apple-system,sans-serif}
-.rp-video-note{font-size:10.5px;color:var(--rp-muted);font-style:italic;margin-top:2px;font-family:-apple-system,sans-serif}
+.rp-media figcaption{font-size:11px;color:var(--rp-muted);margin-top:3px;font-family:Arial, Helvetica, sans-serif}
+.rp-video-note{font-size:10.5px;color:var(--rp-muted);font-style:italic;margin-top:2px;font-family:Arial, Helvetica, sans-serif}
 
 .rp-formsection{margin-bottom:10px}
-.rp-formtable{width:100%;border-collapse:collapse;font-family:-apple-system,sans-serif;font-size:13px}
+.rp-formtable{width:100%;border-collapse:collapse;font-family:Arial, Helvetica, sans-serif;font-size:13px}
 .rp-formtable th{text-align:left;color:var(--rp-muted);font-weight:600;padding:6px 10px 6px 0;width:200px;vertical-align:top}
 .rp-formtable td{padding:6px 0;border-top:1px solid var(--rp-line);vertical-align:top}
 .rp-subtable{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
@@ -79,10 +84,10 @@
 .rp-signoff{page-break-inside:avoid}
 
 .rp-footer{margin-top:32px;padding-top:12px;border-top:1px solid var(--rp-line);
-  font-size:11px;color:var(--rp-muted);font-family:-apple-system,sans-serif;text-align:center}
+  font-size:11px;color:var(--rp-muted);font-family:Arial, Helvetica, sans-serif;text-align:center}
 
 .rp-note{background:#f4f6fa;border:1px solid var(--rp-line);border-radius:8px;padding:10px 13px;
-  font-family:-apple-system,sans-serif;font-size:12.5px;color:#334;margin:0 0 14px}
+  font-family:Arial, Helvetica, sans-serif;font-size:12.5px;color:#334;margin:0 0 14px}
 
 .agreement-text p{margin:0 0 14px;font-size:14px}
 
@@ -95,4 +100,11 @@
   .no-print{ display:none !important; }
   .rp-media img,.rp-media video{ max-height:280px; }
   a{ color:inherit; text-decoration:none; }
+
+  /* The browser's own print pagination has less usable height per page than
+     the PDF export (the @page margin above eats into it) — trim the cover
+     photo specifically for this path rather than shrinking it everywhere. */
+  .rp-cover2-photo{ max-height:60px; margin-bottom:8px; }
+  .rp-cover2-logo-img{ max-height:44px; }
+  .rp-cover2-logo-bottom .rp-cover2-logo-img{ max-height:28px; }
 }
