@@ -193,7 +193,7 @@ export async function agreementView(view, { id }) {
       await navigator.clipboard.writeText(agreement.remoteSignUrl);
       toast('Link copied');
     } catch {
-      await shareLink(agreement.remoteSignUrl, shareTitle, shareText);
+      await shareLink(agreement.remoteSignUrl, shareTitle, shareText, client?.email);
     }
   });
 
@@ -243,20 +243,34 @@ export async function sendRemoteSigningLink({ inspection, client, property, sett
   agreement.remoteSignUrl = signUrl;
   agreement.remoteSentAt = Date.now();
   await store.saveInspection(inspection);
-  await shareLink(signUrl, shareTitle, `${shareText}\n\n${signUrl}`);
+  await shareLink(signUrl, shareTitle, `${shareText}\n\n${signUrl}`, client?.email);
 }
 
-async function shareLink(url, title, text) {
+async function shareLink(url, title, text, toEmail) {
   if (navigator.share) {
     try { await navigator.share({ title, text, url }); return; }
     catch (err) { if (err?.name === 'AbortError') return; }
   }
+  // Web Share isn't available in every mobile browser — DuckDuckGo's iOS
+  // browser, notably, doesn't support it at all. mailto: is handled by iOS
+  // itself, not the browser, so it reliably opens the native Mail app
+  // regardless of which browser this is running in.
   try {
-    await navigator.clipboard.writeText(url);
-    toast('Link copied — paste it into a text or email to the client');
+    window.location.href = buildMailto(toEmail, title, text);
+    toast('Opening Mail…');
   } catch {
-    toast(`Share this link with the client: ${url}`, 8000);
+    try {
+      await navigator.clipboard.writeText(url);
+      toast('Link copied — paste it into a text or email to the client');
+    } catch {
+      toast(`Share this link with the client: ${url}`, 8000);
+    }
   }
+}
+
+function buildMailto(toEmail, subject, body) {
+  const qs = [`subject=${encodeURIComponent(subject || '')}`, `body=${encodeURIComponent(body || '')}`].join('&');
+  return `mailto:${toEmail ? encodeURIComponent(toEmail) : ''}?${qs}`;
 }
 
 async function shareOrDownload(htmlStr, name, title, text) {

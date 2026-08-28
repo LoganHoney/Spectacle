@@ -44,11 +44,23 @@ export async function emailReportToClient(hydrated, formId) {
     }
     try { await navigator.share({ title, text }); return; } catch (err) { if (err?.name === 'AbortError') return; }
   }
+  // Web Share isn't available in every mobile browser — DuckDuckGo's iOS
+  // browser, notably, doesn't support it at all. mailto: is handled by iOS
+  // itself, not the browser, so it reliably opens the native Mail app
+  // regardless. It can't carry the PDF as a real attachment (mailto: has no
+  // attachment mechanism), but the hosted link in the body still gets the
+  // client the report.
   try {
-    await navigator.clipboard.writeText(`${text}`);
-    toast('Report link copied — paste it into a text or email to the client');
+    const qs = [`subject=${encodeURIComponent(title || '')}`, `body=${encodeURIComponent(text)}`].join('&');
+    window.location.href = `mailto:${client?.email ? encodeURIComponent(client.email) : ''}?${qs}`;
+    toast('Opening Mail…');
   } catch {
-    toast(`Share this with the client: ${viewUrl}`, 8000);
+    try {
+      await navigator.clipboard.writeText(`${text}`);
+      toast('Report link copied — paste it into a text or email to the client');
+    } catch {
+      toast(`Share this with the client: ${viewUrl}`, 8000);
+    }
   }
 }
 
