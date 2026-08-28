@@ -243,7 +243,7 @@ export async function sendRemoteSigningLink({ inspection, client, property, sett
   agreement.remoteSignUrl = signUrl;
   agreement.remoteSentAt = Date.now();
   await store.saveInspection(inspection);
-  await shareLink(signUrl, shareTitle, `${shareText}\n\n${signUrl}`, client?.email);
+  await shareLink(signUrl, shareTitle, `${shareText}\n\nPre-Inspection Agreement: ${signUrl}`, client?.email);
 }
 
 async function shareLink(url, title, text, toEmail) {

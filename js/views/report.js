@@ -29,7 +29,7 @@ export async function emailReportToClient(hydrated, formId) {
   const tpl = getEmailTemplate(hydrated.settings, templateKey);
   const fields = buildMergeContext(hydrated);
   const title = mergeText(tpl.subject, fields);
-  const text = `${mergeText(tpl.body, fields)}\n\nView or download online: ${viewUrl}`;
+  const text = `${mergeText(tpl.body, fields)}\n\nYour Report: ${viewUrl}`;
   const file = new File([pdfBlob], `${base}.pdf`, { type: 'application/pdf' });
 
   if (navigator.share) {
