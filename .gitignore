@@ -1,0 +1,11 @@
+# Local tooling / test artifacts — not part of the app
+.edge-cdp-profile/
+.edge-launch.log
+tools/__pycache__/
+backend/__pycache__/
+backend/tools/__pycache__/
+__pycache__/
+*.pyc
+
+# Local Claude Code settings (machine-specific)
+.claude/settings.local.json
