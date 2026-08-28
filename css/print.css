@@ -2,25 +2,33 @@
    both wrap content in #report-root so these rules apply identically. */
 
 .rp-root{
-  --rp-ink:#1a1a1a; --rp-muted:#5b6472; --rp-line:#dfe3e8; --rp-bg:#fff;
+  --rp-ink:#1a1a1a; --rp-muted:#5b6472; --rp-line:#dfe3e8; --rp-bg:#fff; --rp-accent:#c0392b;
   background:var(--rp-bg); color:var(--rp-ink);
   font:15px/1.55 Georgia,'Times New Roman',serif;
   max-width:850px;margin:0 auto;padding:28px 22px;
 }
 .rp-root h1,.rp-root h2,.rp-root h3,.rp-root h4{font-family:-apple-system,'Segoe UI',Roboto,sans-serif}
 
-.rp-cover-top{display:flex;align-items:center;gap:14px;margin-bottom:14px}
-.rp-logo{max-height:56px;max-width:180px;object-fit:contain}
 .rp-logo-fallback{width:52px;height:52px;border-radius:12px;background:#0f172a;color:#fff;
-  display:grid;place-content:center;font-weight:800;font-family:-apple-system,sans-serif;flex:0 0 auto}
-.rp-company-name{font-weight:800;font-size:17px;font-family:-apple-system,sans-serif}
+  display:grid;place-content:center;font-weight:800;font-family:-apple-system,sans-serif;flex:0 0 auto;margin:0 auto}
 .rp-small,.rp-muted{color:var(--rp-muted);font-size:12.5px}
-.rp-title{font-size:26px;margin:6px 0 2px;font-family:-apple-system,sans-serif;letter-spacing:-.01em}
 .rp-code{color:var(--rp-muted);font-weight:700;letter-spacing:.04em;font-family:-apple-system,sans-serif;margin-bottom:14px;font-size:12.5px}
 
-.rp-cover-table{width:100%;border-collapse:collapse;margin:10px 0 6px;font-family:-apple-system,sans-serif;font-size:13.5px}
-.rp-cover-table th{text-align:left;color:var(--rp-muted);font-weight:600;padding:5px 10px 5px 0;white-space:nowrap;vertical-align:top;width:150px}
-.rp-cover-table td{padding:5px 0;border-top:1px solid var(--rp-line)}
+/* ---------------- cover sheet ---------------- */
+.rp-cover2{text-align:center;max-width:480px;margin:0 auto;padding:36px 10px 24px}
+.rp-cover2-logo{margin:0 0 24px}
+.rp-cover2-logo-img{max-height:92px;max-width:280px;object-fit:contain}
+.rp-cover2-logo-bottom{margin:34px 0 0}
+.rp-cover2-logo-bottom .rp-cover2-logo-img{max-height:64px}
+.rp-cover2-title{font-family:-apple-system,'Segoe UI',Roboto,sans-serif;font-size:25px;font-weight:800;
+  color:var(--rp-accent);margin:0 0 20px;letter-spacing:-.01em}
+.rp-cover2-block{margin:0 0 18px}
+.rp-cover2-label{font-family:-apple-system,sans-serif;font-weight:800;font-size:12.5px;
+  text-transform:uppercase;letter-spacing:.03em;color:var(--rp-ink);margin-bottom:4px}
+.rp-cover2-value{font-size:15px;line-height:1.4}
+.rp-cover2-photo{width:100%;max-width:420px;border-radius:4px;display:block;object-fit:cover;
+  max-height:280px;margin:6px auto 22px;box-shadow:0 1px 5px rgba(0,0,0,.18)}
+.rp-cover2-inspector{font-size:14px;line-height:1.6;margin-top:2px}
 
 .rp-jump{background:#f4f6fa;border:1px solid var(--rp-line);border-radius:10px;padding:14px 16px;margin:0 0 22px;font-family:-apple-system,sans-serif}
 .rp-jump-title{font-size:11px;font-weight:700;color:var(--rp-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}

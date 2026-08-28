@@ -11,6 +11,8 @@ import { sendRemoteSigningLink } from './agreement.js';
 import * as signing from '../core/signingClient.js';
 import { emailReportToClient } from './report.js';
 import * as reportClient from '../core/reportClient.js';
+import { COVER_PHOTO_SLOT } from '../report/render.js';
+import { mountPhotos } from './photos.js';
 
 function agreementStatus(inspection) {
   const a = inspection.agreement;
@@ -216,6 +218,12 @@ export async function inspectionWorkspace(view, { id }) {
       </div>
 
       <div class="card">
+        <h3 style="margin:0 0 8px">Cover Photo</h3>
+        <div class="small muted" style="margin:-4px 0 8px">A photo of the front of the house — used on the cover sheet of every report generated for this job.</div>
+        <div id="cover-photo-host"></div>
+      </div>
+
+      <div class="card">
         <div class="spread" style="margin-bottom:8px">
           <h3 style="margin:0">Inspection Cost</h3>
           <span class="pill ${inspection.paid ? 'ok' : ''}" data-paid-toggle style="cursor:pointer">${inspection.paid ? 'Paid' : 'Unpaid'}</span>
@@ -276,6 +284,8 @@ export async function inspectionWorkspace(view, { id }) {
       <button class="btn primary wide" data-report style="margin:6px 0 8px">Generate Report</button>
       <button class="btn danger wide" data-delete-job>Delete Inspection</button>
     `;
+
+    mountPhotos(view.querySelector('#cover-photo-host'), { inspectionId: id, slot: COVER_PHOTO_SLOT, label: 'Cover Photo' });
 
     bind();
   }

@@ -47,7 +47,7 @@ export async function renderFullReport({ inspection, client, property, settings,
   `;
 
   return `
-    ${coverBlock(inspection, client, property, settings, jobContacts)}
+    ${coverBlock(inspection, client, property, settings, jobContacts, bySlot, urlFor)}
     ${jumpNavBlock(nav)}
     ${body}
   `;
@@ -69,39 +69,57 @@ export async function renderFormReport({ inspection, client, property, settings,
   `;
 
   return `
-    ${coverBlock(inspection, client, property, settings, jobContacts, form.title, form.code)}
+    ${coverBlock(inspection, client, property, settings, jobContacts, bySlot, urlFor, form.title, form.code)}
     ${jumpNavBlock(nav)}
     ${body}
   `;
 }
 
+/** The one media slot every report type shares — a single photo of the front
+ * of the house, set once on the job page, used on every cover sheet. */
+export const COVER_PHOTO_SLOT = slotKey('cover', 'photo');
+
 // ---------------------------------------------------------------- pieces
 
-function coverBlock(inspection, client, property, settings, jobContacts, subtitle, code) {
-  const addr = property ? store.propertyLabel(property) : '';
-  const contactsLine = (jobContacts || []).map((c) => `${c.name}${c.role ? ` (${c.role})` : ''}`).join('; ');
+function coverBlock(inspection, client, property, settings, jobContacts, bySlot, urlFor, subtitle, code) {
+  const addrLine1 = property?.address || '';
+  const addrLine2 = property ? [property.city, [property.state, property.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ') : '';
+  const photo = bySlot?.[COVER_PHOTO_SLOT]?.[0];
+  const logo = settings.logoDataUrl
+    ? `<img class="rp-cover2-logo-img" src="${settings.logoDataUrl}" alt="${esc(settings.companyName || 'Company')} logo">`
+    : `<div class="rp-logo-fallback">${esc(initials(settings.companyName))}</div>`;
+  const licenseTag = settings.license ? `${esc(settings.licenseType || 'Lic.')}#${esc(settings.license)}` : '';
+
   return `
-  <header class="rp-cover">
-    <div class="rp-cover-top">
-      ${settings.logoDataUrl ? `<img class="rp-logo" src="${settings.logoDataUrl}" alt="Company logo">` : `<div class="rp-logo-fallback">${esc(initials(settings.companyName))}</div>`}
-      <div class="rp-company">
-        <div class="rp-company-name">${esc(settings.companyName || 'Home Inspection Report')}</div>
-        ${settings.license ? `<div class="rp-small">${esc(settings.licenseType || 'License')} #${esc(settings.license)}</div>` : ''}
-        ${settings.phone || settings.email ? `<div class="rp-small">${esc([settings.phone, settings.email].filter(Boolean).join(' · '))}</div>` : ''}
-        ${settings.addressLine ? `<div class="rp-small">${esc(settings.addressLine)}</div>` : ''}
-      </div>
-    </div>
-    <h1 class="rp-title">${esc(subtitle || 'Residential Inspection Report')}</h1>
+  <header class="rp-cover2">
+    <div class="rp-cover2-logo">${logo}</div>
+    <h1 class="rp-cover2-title">${esc(subtitle || 'Residential Inspection Report')}</h1>
     ${code ? `<div class="rp-code">${esc(code)}</div>` : ''}
-    <table class="rp-cover-table">
-      <tr><th>Property</th><td>${esc(addr || '—')}</td></tr>
-      <tr><th>Client</th><td>${esc(client?.name || '—')}</td></tr>
-      <tr><th>Inspection Date</th><td>${esc(fmt(inspection.inspectedAt || inspection.scheduledAt))}</td></tr>
-      <tr><th>Inspector</th><td>${esc(inspection.inspectorName || settings.inspectorName || '—')}</td></tr>
-      ${inspection.weather ? `<tr><th>Weather</th><td>${esc(inspection.weather)}${inspection.tempF ? ` · ${esc(inspection.tempF)}°F` : ''}</td></tr>` : ''}
-      ${contactsLine ? `<tr><th>Contacts</th><td>${esc(contactsLine)}</td></tr>` : ''}
-      ${inspection.attendees ? `<tr><th>Attendees</th><td>${esc(inspection.attendees)}</td></tr>` : ''}
-    </table>
+
+    ${addrLine1 ? `<div class="rp-cover2-block">
+      <div class="rp-cover2-label">Located At:</div>
+      <div class="rp-cover2-value">${esc(addrLine1)}</div>
+      ${addrLine2 ? `<div class="rp-cover2-value">${esc(addrLine2)}</div>` : ''}
+    </div>` : ''}
+
+    <div class="rp-cover2-block">
+      <div class="rp-cover2-label">Prepared Exclusively For:</div>
+      <div class="rp-cover2-value">${esc(client?.name || '—')}</div>
+    </div>
+
+    <div class="rp-cover2-block">
+      <div class="rp-cover2-label">Inspected On:</div>
+      <div class="rp-cover2-value">${esc(fmtFull(inspection.inspectedAt || inspection.scheduledAt))}</div>
+    </div>
+
+    ${photo ? `<img class="rp-cover2-photo" src="${urlFor(photo, 'full')}" alt="Front of the home">` : ''}
+
+    <div class="rp-cover2-inspector">
+      <div>Inspector, ${esc(inspection.inspectorName || settings.inspectorName || '—')}${licenseTag ? ` ${licenseTag}` : ''}</div>
+      ${settings.companyName ? `<div>${esc(settings.companyName)}</div>` : ''}
+    </div>
+
+    <div class="rp-cover2-logo rp-cover2-logo-bottom">${logo}</div>
   </header>`;
 }
 
@@ -377,6 +395,11 @@ function nl2br(s) { return String(s).replace(/\n/g, '<br>'); }
 function fmt(d) {
   if (!d) return '—';
   try { return new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }); }
+  catch { return d; }
+}
+function fmtFull(d) {
+  if (!d) return '—';
+  try { return new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }); }
   catch { return d; }
 }
 function initials(name) {
