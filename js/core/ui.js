@@ -136,11 +136,35 @@ export function today() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// Every live debounced save registers itself here so it can be forced through
+// immediately if the tab/app is about to close or background — a mobile OS can
+// suspend JS execution the instant a PWA is backgrounded, well before a normal
+// setTimeout would fire, so without this an edit made right before switching
+// apps or closing the tab is silently lost.
+const pendingDebounces = new Set();
+function flushAllDebounces() {
+  for (const w of [...pendingDebounces]) w.flush();
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) flushAllDebounces(); });
+window.addEventListener('pagehide', flushAllDebounces);
+
 /** Save-on-idle: field edits shouldn't hit IndexedDB on every keystroke. */
 export function debounce(fn, ms = 500) {
   let t;
-  const wrapped = (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-  wrapped.flush = (...args) => { clearTimeout(t); fn(...args); };
+  let lastArgs = [];
+  const wrapped = (...args) => {
+    lastArgs = args;
+    clearTimeout(t);
+    pendingDebounces.add(wrapped);
+    t = setTimeout(() => { pendingDebounces.delete(wrapped); fn(...args); }, ms);
+  };
+  // No-args call re-fires with whatever was last queued — lets a caller flush
+  // without having to remember and re-pass the pending value itself.
+  wrapped.flush = (...args) => {
+    clearTimeout(t);
+    pendingDebounces.delete(wrapped);
+    fn(...(args.length ? args : lastArgs));
+  };
   return wrapped;
 }
 
