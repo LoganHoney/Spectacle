@@ -3,7 +3,7 @@ import { DEFAULT_AGREEMENT, mergeAgreement } from '../report/agreement.js';
 import { getEmailTemplate } from '../report/emailTemplates.js';
 import { buildMergeContext, mergeText } from '../core/merge.js';
 import * as signing from '../core/signingClient.js';
-import { html, raw, esc, setTopbar, toast, downloadBlob, debounce, confirmSheet } from '../core/ui.js';
+import { html, raw, esc, setTopbar, toast, downloadBlob, debounce, confirmSheet, copyRichLink } from '../core/ui.js';
 import { go } from '../core/router.js';
 import { mountSignaturePad } from './signature.js';
 
@@ -190,8 +190,8 @@ export async function agreementView(view, { id }) {
 
   view.querySelector('[data-copy-link]')?.addEventListener('click', async () => {
     try {
-      await navigator.clipboard.writeText(agreement.remoteSignUrl);
-      toast('Link copied');
+      const rich = await copyRichLink(agreement.remoteSignUrl, 'Pre-Inspection Agreement');
+      toast(rich ? 'Link copied — paste into Mail for a clickable "Pre-Inspection Agreement" link' : 'Link copied');
     } catch {
       await shareLink(agreement.remoteSignUrl, shareTitle, shareText, client?.email);
     }

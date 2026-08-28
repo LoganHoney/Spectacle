@@ -7,7 +7,7 @@ import { getForm } from '../forms/engine.js';
 import { getEmailTemplate } from '../report/emailTemplates.js';
 import { buildMergeContext, mergeText } from '../core/merge.js';
 import * as reportClient from '../core/reportClient.js';
-import { html, raw, esc, setTopbar, toast, downloadBlob, slug } from '../core/ui.js';
+import { html, raw, esc, setTopbar, toast, downloadBlob, slug, copyRichLink } from '../core/ui.js';
 import { go } from '../core/router.js';
 
 /**
@@ -56,8 +56,8 @@ export async function emailReportToClient(hydrated, formId) {
     toast('Opening Mail…');
   } catch {
     try {
-      await navigator.clipboard.writeText(`${text}`);
-      toast('Report link copied — paste it into a text or email to the client');
+      const rich = await copyRichLink(viewUrl, 'Your Report');
+      toast(rich ? 'Report link copied — paste into Mail for a clickable "Your Report" link' : 'Report link copied');
     } catch {
       toast(`Share this with the client: ${viewUrl}`, 8000);
     }

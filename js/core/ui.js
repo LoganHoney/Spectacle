@@ -193,6 +193,32 @@ export function downloadBlob(blob, filename) {
   setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 4000);
 }
 
+/**
+ * Copies a link to the clipboard as a real clickable hyperlink (rich HTML),
+ * not just a bare URL — pasting into Mail's compose view, Notes, Messages,
+ * etc. then shows the given label as tappable text instead of the raw link.
+ * Automatic flows (mailto:, Web Share) can't do this — both are hard-limited
+ * to plain text by the OS/spec — this only helps the manual copy-and-paste
+ * path. Falls back to a plain "label: url" text copy where rich clipboard
+ * writes aren't supported. Returns true if the rich copy succeeded.
+ */
+export async function copyRichLink(url, label) {
+  const html = `<a href="${esc(url)}">${esc(label)}</a>`;
+  if (navigator.clipboard?.write && window.ClipboardItem) {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([`${label}: ${url}`], { type: 'text/plain' }),
+        }),
+      ]);
+      return true;
+    } catch { /* fall through to plain text */ }
+  }
+  await navigator.clipboard.writeText(`${label}: ${url}`);
+  return false;
+}
+
 export function slug(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'untitled';
 }
