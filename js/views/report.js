@@ -2,11 +2,55 @@ import * as store from '../core/store.js';
 import * as media from '../core/media.js';
 import { renderFullReport, renderFormReport } from '../report/render.js';
 import { buildFullReportHtml, buildFormReportHtml } from '../report/export.js';
+import { buildReportPdfBlob } from '../report/pdf.js';
 import { getForm } from '../forms/engine.js';
 import { getEmailTemplate } from '../report/emailTemplates.js';
 import { buildMergeContext, mergeText } from '../core/merge.js';
+import * as reportClient from '../core/reportClient.js';
 import { html, raw, esc, setTopbar, toast, downloadBlob, slug } from '../core/ui.js';
 import { go } from '../core/router.js';
+
+/**
+ * Builds a real PDF, hosts it on the signing backend for a shareable link,
+ * and hands both to the native share sheet pre-filled with the matching
+ * email template — used by the report page's own button and by the "mark
+ * complete" prompt on the main job page. Throws if no signing server is set.
+ */
+export async function emailReportToClient(hydrated, formId) {
+  if (!reportClient.isConfigured(hydrated.settings)) {
+    throw new Error('No signing server configured — set one in Setup.');
+  }
+  const { property, client } = hydrated;
+  const base = slug([property ? store.propertyLabel(property).split(',')[0] : client?.name, formId].filter(Boolean).join(' ')) || 'inspection-report';
+  const pdfBlob = await buildReportPdfBlob(hydrated, formId);
+  const { viewUrl } = await reportClient.uploadReport(hydrated.settings, pdfBlob, `${base}.pdf`);
+
+  const templateKey = formId === 'fourpoint' ? 'fourpoint' : formId === 'windmit' ? 'windmit' : 'full';
+  const tpl = getEmailTemplate(hydrated.settings, templateKey);
+  const fields = buildMergeContext(hydrated);
+  const title = mergeText(tpl.subject, fields);
+  const text = `${mergeText(tpl.body, fields)}\n\nView or download online: ${viewUrl}`;
+  const file = new File([pdfBlob], `${base}.pdf`, { type: 'application/pdf' });
+
+  if (navigator.share) {
+    const shareData = { title, text, files: [file] };
+    try {
+      if (navigator.canShare && !navigator.canShare(shareData)) throw new Error('files unsupported');
+      await navigator.share(shareData);
+      return;
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      // Fall through to share without the attachment — the hosted link still gets the report to the client.
+    }
+    try { await navigator.share({ title, text }); return; } catch (err) { if (err?.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(`${text}`);
+    toast('Report link copied — paste it into a text or email to the client');
+  } catch {
+    toast(`Share this with the client: ${viewUrl}`, 8000);
+  }
+}
 
 export async function reportView(view, { id, form: formId }) {
   const hydrated = await store.hydrate(id);
@@ -30,6 +74,7 @@ export async function reportView(view, { id, form: formId }) {
       <button class="btn primary" data-print>Print / Save PDF</button>
       <button class="btn" data-export>Export Digital Copy</button>
       ${raw(navigator.share ? '<button class="btn ghost" data-share>Share</button>' : '')}
+      ${raw(reportClient.isConfigured(hydrated.settings) ? '<button class="btn ghost" data-email-report>Email Client — Send PDF + Link</button>' : '')}
     </div>
     <div id="report-root" class="rp-root"><div class="empty small">Building report…</div></div>
   `;
@@ -89,4 +134,15 @@ export async function reportView(view, { id, form: formId }) {
       }
     };
   }
+
+  view.querySelector('[data-email-report]')?.addEventListener('click', async () => {
+    toast('Building PDF and uploading…', 30000);
+    try {
+      await emailReportToClient(hydrated, formId);
+      toast('Report sent');
+    } catch (err) {
+      console.error(err);
+      toast(`Could not send the report: ${err.message}`);
+    }
+  });
 }

@@ -1,21 +1,23 @@
 # Remote signing backend
 
 The rest of Hernando Inspections works with zero internet connection. This
-folder is the one exception: a client signing the pre-inspection agreement on
-their own device, before you arrive, has to hand that signature to something
-reachable over the internet. That's what this is.
+folder is the exception: a client signing the pre-inspection agreement on
+their own device before you arrive, or opening a finished report you emailed
+them, needs something reachable over the internet. That's what this is.
 
 It's small on purpose: two free accounts, no credit card, ~10 minutes.
 
 ## What it is
 
-- A tiny Python (Flask) web app with four endpoints: create a signing link,
-  serve the signing page, accept the submitted signature, and let the app
-  check whether it's been signed yet.
+- A tiny Python (Flask) web app. Signing: create a signing link, serve the
+  signing page, accept the submitted signature, check whether it's been
+  signed yet. Reports: host a finished report (PDF) so it has a link, and
+  serve it back when opened.
 - Storage is [Upstash](https://upstash.com) Redis (free tier) — not a
   database on the server itself, because Render's free web service resets its
-  disk and loses anything in memory every time it goes idle. Each record
-  auto-expires after 30 days whether anyone cleans it up or not.
+  disk and loses anything in memory every time it goes idle. Signing records
+  auto-expire after 30 days; hosted reports after 90 days — whether anyone
+  cleans them up or not.
 - Hosting is [Render](https://render.com) (free tier). The free tier spins
   the app down after 15 minutes with no traffic and takes ~20-30 seconds to
   wake back up on the next request — completely fine for something a client

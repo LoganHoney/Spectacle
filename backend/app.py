@@ -11,6 +11,7 @@ forever). The web process itself is stateless and disposable, which matters
 because Render's free tier spins the instance down after 15 minutes of
 inactivity and loses anything kept only in memory or on local disk.
 """
+import base64
 import html
 import json
 import os
@@ -27,6 +28,8 @@ CORS(app, resources={r"/api/*": {"origins": "*"}})
 UPSTASH_URL = os.environ.get("UPSTASH_REDIS_REST_URL", "").rstrip("/")
 UPSTASH_TOKEN = os.environ.get("UPSTASH_REDIS_REST_TOKEN", "")
 RECORD_TTL_SECONDS = 60 * 60 * 24 * 30  # 30 days — plenty for a document nobody signs in a month, they've moved on
+REPORT_TTL_SECONDS = 60 * 60 * 24 * 90  # 90 days — a finished report/PDF may get referenced by an insurer for a while
+MAX_REPORT_BYTES = 15 * 1024 * 1024  # generous for a photo-heavy report; keeps one bad upload from being disproportionate on a free Upstash tier
 
 
 def _redis(command):
@@ -42,6 +45,10 @@ def _redis(command):
 
 def record_key(token):
     return f"agreement:{token}"
+
+
+def report_key(token):
+    return f"report:{token}"
 
 
 def save_record(token, record):
@@ -109,6 +116,44 @@ def agreement_status(token):
 def delete_agreement(token):
     delete_record(token)
     return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------- reports (finished PDF, hosted so it has a shareable link)
+
+@app.post("/api/reports")
+def create_report():
+    body = request.get_json(force=True, silent=True) or {}
+    data_b64 = body.get("dataBase64") or ""
+    if not data_b64:
+        return jsonify({"error": "Missing dataBase64"}), 400
+    if len(data_b64) > MAX_REPORT_BYTES * 4 // 3 + 1024:  # base64 is ~4/3 the size of the raw bytes
+        return jsonify({"error": "Report is too large to host"}), 413
+
+    token = secrets.token_urlsafe(24)
+    record = {
+        "dataBase64": data_b64,
+        "contentType": body.get("contentType") or "application/pdf",
+        "filename": body.get("filename") or "inspection-report.pdf",
+        "createdAt": int(time.time() * 1000),
+    }
+    _redis(["SET", report_key(token), json.dumps(record), "EX", str(REPORT_TTL_SECONDS)])
+    view_url = f"{request.url_root.rstrip('/')}/report/{token}"
+    return jsonify({"token": token, "viewUrl": view_url})
+
+
+@app.get("/report/<token>")
+def view_report(token):
+    raw = _redis(["GET", report_key(token)])
+    if not raw:
+        return Response(NOT_FOUND_HTML, mimetype="text/html", status=404)
+    record = json.loads(raw)
+    try:
+        data = base64.b64decode(record["dataBase64"])
+    except Exception:
+        return Response(NOT_FOUND_HTML, mimetype="text/html", status=404)
+    resp = Response(data, mimetype=record.get("contentType", "application/pdf"))
+    resp.headers["Content-Disposition"] = f'inline; filename="{record.get("filename", "report.pdf")}"'
+    return resp
 
 
 # ---------------------------------------------------------------- signing page (opened by the client)

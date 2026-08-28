@@ -9,6 +9,8 @@ import { FORM_MENU, getForm, completion } from '../forms/engine.js';
 import { statusCls } from './dashboard.js';
 import { sendRemoteSigningLink } from './agreement.js';
 import * as signing from '../core/signingClient.js';
+import { emailReportToClient } from './report.js';
+import * as reportClient from '../core/reportClient.js';
 
 function agreementStatus(inspection) {
   const a = inspection.agreement;
@@ -282,9 +284,23 @@ export async function inspectionWorkspace(view, { id }) {
     view.querySelector('[data-status-pill]').onclick = async () => {
       const s = await chooseSheet('Job Status', store.STATUS.map((v) => ({ value: v, label: v })), { current: inspection.status });
       if (!s) return;
+      const justDelivered = s === 'Delivered' && inspection.status !== 'Delivered';
       inspection.status = s;
       await persistNow();
       render();
+      if (justDelivered && reportClient.isConfigured(settings)) {
+        const ok = await confirmSheet('Email the report to the client?', 'Builds a PDF, uploads it for a link, and opens your Mail app pre-filled with both.', { danger: false, okLabel: 'Email Report' });
+        if (ok) {
+          toast('Building PDF and uploading…', 30000);
+          try {
+            await emailReportToClient(await store.hydrate(id));
+            toast('Report sent');
+          } catch (err) {
+            console.error(err);
+            toast(`Could not send the report: ${err.message}`);
+          }
+        }
+      }
     };
 
     view.querySelector('[data-edit-job]').onclick = async () => {
