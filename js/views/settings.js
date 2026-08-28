@@ -50,7 +50,13 @@ export async function settingsView(view) {
 
   function render() {
     view.innerHTML = html`
-    <h2 style="margin-top:6px">Company & Inspector</h2>
+    <h2 style="margin-top:6px">Account</h2>
+    <div class="card stack">
+      <div class="small muted">Cloud sign-in, so your data isn't only on this device.</div>
+      <a class="btn wide" href="#/account">Manage Account</a>
+    </div>
+
+    <h2>Company & Inspector</h2>
     <div class="card stack">
       <div class="row" style="align-items:flex-start">
         <div id="logo-preview" style="width:64px;height:64px;border-radius:14px;border:1px solid var(--line);

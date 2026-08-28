@@ -2,7 +2,7 @@
 // changes so returning devices pick up the update instead of serving stale
 // JS forever — that's the whole point of the cache-first strategy below.
 
-const CACHE_VERSION = 'hi-v27';
+const CACHE_VERSION = 'hi-v28';
 const CACHE_NAME = `hernando-inspections-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -31,6 +31,7 @@ const PRECACHE = [
   'js/forms/fourpoint.js',
   'js/forms/windmit.js',
   'js/core/reportClient.js',
+  'js/core/supabaseClient.js',
   'js/report/agreement.js',
   'js/report/comments.js',
   'js/report/emailTemplates.js',
@@ -38,6 +39,7 @@ const PRECACHE = [
   'js/report/pdf.js',
   'js/report/render.js',
   'js/report/template.js',
+  'js/views/account.js',
   'js/views/agreement.js',
   'js/views/annotate.js',
   'js/views/checklist.js',
@@ -57,6 +59,7 @@ const PRECACHE = [
   // ~560KB one-time download on install, worth it for guaranteed offline PDF.
   'js/vendor/jspdf.umd.min.js',
   'js/vendor/html2canvas.min.js',
+  'js/vendor/supabase.min.js',
 ];
 
 self.addEventListener('install', (event) => {

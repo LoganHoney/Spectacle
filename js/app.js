@@ -1,5 +1,6 @@
 import * as db from './core/db.js';
 import * as store from './core/store.js';
+import * as supabaseClient from './core/supabaseClient.js';
 import { $$ } from './core/ui.js';
 import { route, start, currentPath, go } from './core/router.js';
 
@@ -14,6 +15,7 @@ import { agreementView } from './views/agreement.js';
 import { reportView } from './views/report.js';
 import { libraryView } from './views/library.js';
 import { settingsView } from './views/settings.js';
+import { accountView } from './views/account.js';
 
 const view = document.getElementById('view');
 
@@ -31,6 +33,7 @@ route('/inspection/:id/report', (p) => reportView(view, p));
 route('/library', () => libraryView(view));
 route('/contacts', () => contactsView(view));
 route('/settings', () => settingsView(view));
+route('/account', () => accountView(view));
 
 function updateTabbar() {
   const path = currentPath();
@@ -61,6 +64,11 @@ async function boot() {
   document.getElementById('topbar').hidden = false;
   document.getElementById('tabbar').hidden = false;
   view.hidden = false;
+
+  // Catch a magic-link redirect the moment the app loads, not just when the
+  // user happens to open Account — getClient() with detectSessionInUrl:true
+  // consumes the token from the URL as a side effect of initializing.
+  if (supabaseClient.isConfigured()) supabaseClient.getClient().catch((err) => console.warn('Supabase init failed', err));
 
   start(updateTabbar);
 
