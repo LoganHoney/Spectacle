@@ -7,8 +7,8 @@
 // js/report/pdf.js) rather than at boot, since most of the app's day-to-day
 // use — a job already in progress, fully offline — never touches this.
 
-const SUPABASE_URL = 'PLACEHOLDER_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'PLACEHOLDER_SUPABASE_ANON_KEY';
+const SUPABASE_URL = 'https://jkijvjpyygiplulubkns.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpraWp2anB5eWdpcGx1bHVia25zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc4Nzg1NTUsImV4cCI6MjEwMzQ1NDU1NX0.EXaTXWFXSFnclWc7D-WqfwBDuHuWY-3BHL98nE9iN_c';
 
 let clientPromise = null;
 
