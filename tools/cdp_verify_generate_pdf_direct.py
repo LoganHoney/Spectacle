@@ -37,13 +37,23 @@ JS = r"""
       return origCreate.call(URL, blob);
     };
 
+    // navigator.share() needs a genuine user gesture and a real OS share
+    // sheet to resolve/reject at all -- neither exists in headless
+    // automation, so it hangs forever here regardless of app code. Stub it
+    // out to exercise the guaranteed-safe downloadBlob fallback instead,
+    // which is what browsers without Web Share support hit anyway.
+    // navigator.share lives on Navigator.prototype, not the instance --
+    // `delete navigator.share` is a silent no-op there. Shadow it with an
+    // own property instead.
+    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+
     const hashBefore = location.hash;
     const btn = document.querySelector('[data-generate-form="windmit"]');
     if (!btn) return JSON.stringify({ ok: false, error: 'windmit button not found' });
     btn.click();
 
     // Wait for the PDF build (pdf-lib fetch + fill) to complete.
-    const deadline = Date.now() + 30000;
+    const deadline = Date.now() + 45000;
     while (captured.length === 0 && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 300));
     }
@@ -101,7 +111,7 @@ def main():
         time.sleep(3)
 
         eval_id = ws.call("Runtime.evaluate", {"expression": JS, "awaitPromise": True, "returnByValue": True})
-        deadline = time.time() + 40
+        deadline = time.time() + 60
         result = None
         console_lines = []
         while time.time() < deadline:

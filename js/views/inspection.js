@@ -234,19 +234,47 @@ export async function inspectionWorkspace(view, { id }) {
     toast('Building PDF…', 20000);
     try {
       const base = slug([property ? store.propertyLabel(property).split(',')[0] : client?.name, formId].filter(Boolean).join(' ')) || 'inspection-form';
+      const title = formId === 'windmit' ? 'Wind Mitigation Report' : '4-Point Inspection Report';
+      let blob, filename;
       if (formId === 'windmit') {
-        const blob = await buildWindMitOfficialPdf(values);
-        downloadBlob(blob, `${base}-OIR-B1-1802.pdf`);
+        blob = await buildWindMitOfficialPdf(values);
+        filename = `${base}-OIR-B1-1802.pdf`;
       } else {
         const fresh = await store.hydrate(id); // re-hydrate so the PDF reflects the crosspopulate values just applied
-        const blob = await buildReportPdfBlob(fresh, formId);
-        downloadBlob(blob, `${base}.pdf`);
+        blob = await buildReportPdfBlob(fresh, formId);
+        filename = `${base}.pdf`;
       }
-      toast(candidates.length ? `PDF saved — pulled ${candidates.length} field${candidates.length === 1 ? '' : 's'} from the checklist` : 'PDF saved');
+      const pulledMsg = candidates.length ? ` — pulled ${candidates.length} field${candidates.length === 1 ? '' : 's'} from the checklist` : '';
+      await shareOrDownloadPdf(blob, filename, title);
+      toast(`PDF ready${pulledMsg}`);
     } catch (err) {
       console.error(err);
       toast(`Could not build the PDF: ${err.message}`);
     }
+  }
+
+  /**
+   * Hands the built PDF to the OS share sheet when available — on iOS this
+   * is what gives both a preview (tap the file thumbnail before choosing
+   * anything) and a one-tap "Mail" option, without needing two separate
+   * flows. Falls back to a plain download wherever Web Share (or file
+   * sharing specifically) isn't supported. A cancelled share is left alone,
+   * not treated as a failure that should fall back to downloading instead.
+   */
+  async function shareOrDownloadPdf(blob, filename, title) {
+    if (navigator.share) {
+      const file = new File([blob], filename, { type: 'application/pdf' });
+      try {
+        const shareData = { title, files: [file] };
+        if (navigator.canShare && !navigator.canShare(shareData)) throw new Error('file sharing unsupported');
+        await navigator.share(shareData);
+        return;
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
+        // fall through to a plain download
+      }
+    }
+    downloadBlob(blob, filename);
   }
 
   async function render() {

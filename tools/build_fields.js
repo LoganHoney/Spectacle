@@ -29,7 +29,10 @@ function addCheckBox(form, doc, name, page, x, y) {
 
 function addText(form, doc, name, page, x, y, width, height = TF_H) {
   const tf = form.createTextField(name);
-  tf.addToPage(doc.getPages()[page], { x, y, width, height });
+  // No border/background — this sits directly on the printed form's own
+  // blank line, so a box around it would look like a UI widget pasted onto
+  // a government form rather than typed text filling in the blank.
+  tf.addToPage(doc.getPages()[page], { x, y, width, height, borderWidth: 0 });
   tf.setFontSize(9);
   return tf;
 }
