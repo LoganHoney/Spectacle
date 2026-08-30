@@ -29,7 +29,7 @@
 // (category + title) when this is newer than what's stored, so edits/adds
 // here reach existing installs without wiping custom comments the inspector
 // added themselves or their usage counts on existing ones.
-export const COMMENTS_VERSION = 3;
+export const COMMENTS_VERSION = 4;
 
 export const STARTER_COMMENTS = [
   // ================================================================ SITE & GROUNDS
@@ -57,6 +57,14 @@ export const STARTER_COMMENTS = [
   { category: 'Site & Grounds', subgroup: 'Vegetation & Fencing', severity: 1, title: 'Fencing / gate damaged',
     body: 'Fencing and/or a gate appeared to be damaged, leaning, or missing hardware at the time of the inspection.',
     recommendation: 'Repair by a qualified fencing contractor is recommended.' },
+  { category: 'Site & Grounds', severity: 0, title: 'Retaining wall — good condition',
+    body: 'The retaining wall appeared to be structurally sound and in good condition at the time of the inspection, with no significant leaning, bulging, or cracking observed.' },
+  { category: 'Site & Grounds', severity: 2, title: 'Retaining wall — leaning, bulging, or cracked',
+    body: 'The retaining wall showed leaning, bulging, or cracking at the time of the inspection, which may indicate a drainage or structural deficiency behind the wall.',
+    recommendation: 'Evaluation by a qualified structural or landscaping contractor is recommended.' },
+  { category: 'Site & Grounds', severity: 1, title: 'Sprinkler/irrigation spray on structure',
+    body: 'One or more irrigation heads appeared to spray directly onto the exterior wall covering or foundation at the time of the inspection, keeping the surface persistently wet.',
+    recommendation: 'Adjustment of irrigation heads to avoid spraying the structure is recommended.' },
 
   // ================================================================ ROOF
   { category: 'Roof', subgroup: 'Roof Covering', severity: 0, title: 'Roof covering — new / recently installed',
@@ -90,6 +98,17 @@ export const STARTER_COMMENTS = [
   { category: 'Roof', subgroup: 'Roof Covering', severity: 3, title: 'Active roof leak observed',
     body: 'Evidence of active or recent roof leakage was observed at the time of the inspection, including staining, moisture, or active intrusion at the underside of the roof deck and/or ceiling below.',
     recommendation: 'Evaluation and repair by a licensed roofing contractor is recommended.' },
+  { category: 'Roof', subgroup: 'Roof Covering', severity: 2, title: 'Exposed fastener heads',
+    body: 'Exposed or improperly sealed fastener heads were observed on the roof covering at the time of the inspection, which is a common point of future water intrusion as sealant ages.',
+    recommendation: 'Sealing by a licensed roofing contractor is recommended.' },
+  { category: 'Roof', subgroup: 'Flashing & Drainage', severity: 2, title: 'Missing or improper kick-out flashing',
+    body: 'Kick-out flashing appeared to be missing or improperly installed where a roof edge meets a sidewall at the time of the inspection, which is a recognized point of water intrusion into the wall assembly below.',
+    recommendation: 'Installation of proper kick-out flashing by a licensed roofing contractor is recommended.' },
+  { category: 'Roof', subgroup: 'Flashing & Drainage', severity: 2, title: 'Skylight — deteriorated flashing/seal',
+    body: 'The skylight flashing and/or seal appeared to be deteriorated or improperly sealed at the time of the inspection, a common source of leakage at this type of penetration.',
+    recommendation: 'Evaluation and resealing by a licensed roofing contractor is recommended.' },
+  { category: 'Roof', subgroup: 'Roof Covering', severity: 1, title: 'Roof geometry (fill-in)',
+    body: 'The roof exhibits a {Fill:shape} geometry, based on visual observation at the time of the inspection.' },
 
   // ================================================================ EXTERIOR
   { category: 'Exterior', subgroup: 'Wall Covering', severity: 0, title: 'Wall covering — good condition',
@@ -118,6 +137,24 @@ export const STARTER_COMMENTS = [
   { category: 'Exterior', subgroup: 'Porches & Attachments', severity: 2, title: 'Deteriorated / soft decking observed',
     body: 'Soft spots, deterioration, or damaged fasteners were observed at a porch, deck, or balcony at the time of the inspection.',
     recommendation: 'Evaluation and repair by a qualified contractor is recommended.' },
+  { category: 'Exterior', severity: 0, title: 'Hose bibs — functional',
+    body: 'Exterior hose bibs operated normally and showed no signs of leakage at the time of the inspection.' },
+  { category: 'Exterior', severity: 1, title: 'Hose bib — no anti-siphon device',
+    body: 'One or more exterior hose bibs did not appear to have a vacuum breaker/anti-siphon device installed at the time of the inspection, which is intended to prevent backflow contamination of the potable water supply.',
+    recommendation: 'Installation of vacuum breaker devices is recommended.' },
+  { category: 'Exterior', severity: 1, title: 'Hose bib — leaking or damaged',
+    body: 'An exterior hose bib appeared to be leaking, loose, or damaged at the time of the inspection.',
+    recommendation: 'Repair by a licensed plumber is recommended.' },
+  { category: 'Exterior', severity: 0, title: 'Exterior electrical fixtures & receptacles — functional',
+    body: 'Exterior light fixtures and receptacles appeared to be properly installed and functional at the time of the inspection.' },
+  { category: 'Exterior', severity: 3, title: 'Exterior receptacle missing weatherproof cover',
+    body: 'One or more exterior receptacles were missing a weatherproof (in-use) cover at the time of the inspection, exposing the device to the elements.',
+    recommendation: 'Installation of an in-use weatherproof cover by a licensed electrician is recommended.' },
+  { category: 'Exterior', severity: 1, title: 'Missing weep holes / weep screed',
+    body: 'Weep holes or a weep screed did not appear to be present or functional at the base of the exterior wall covering (brick veneer or stucco) at the time of the inspection, which are intended to allow moisture to drain from behind the cladding.',
+    recommendation: 'Evaluation by a qualified contractor is recommended.' },
+  { category: 'Exterior', severity: 0, title: 'Soffit & eave venting — adequate',
+    body: 'Soffit and eave venting appeared to be present and unobstructed at the time of the inspection.' },
 
   // ================================================================ STRUCTURE & FOUNDATION
   { category: 'Structure & Foundation', subgroup: 'Foundation', severity: 0, title: 'Foundation — good condition',
@@ -141,6 +178,12 @@ export const STARTER_COMMENTS = [
   { category: 'Structure & Foundation', subgroup: 'Framing', severity: 3, title: 'Evidence of wood-destroying organism activity',
     body: 'Evidence consistent with wood-destroying organism activity (e.g. mud tubes, frass, or damaged wood) was observed at the time of the inspection. This observation is reported only; a WDO inspection is a separate licensed service and this report does not constitute one.',
     recommendation: 'Evaluation by a licensed WDO/pest control inspector is recommended.' },
+  { category: 'Structure & Foundation', subgroup: 'Foundation', severity: 1, title: 'Expansion/control joint deterioration',
+    body: 'Sealant at an expansion or control joint in the foundation or slab appeared to be cracked, missing, or deteriorated at the time of the inspection.',
+    recommendation: 'Resealing as routine maintenance is recommended.' },
+  { category: 'Structure & Foundation', subgroup: 'Framing', severity: 2, title: 'Undersized or improperly spliced framing member',
+    body: 'A framing member appeared to be undersized, notched, or spliced in a manner inconsistent with typical construction practice at the time of the inspection.',
+    recommendation: 'Evaluation by a licensed structural engineer is recommended.' },
 
   // ================================================================ ATTIC, INSULATION & VENTILATION
   { category: 'Attic, Insulation & Ventilation', subgroup: 'Attic Structure', severity: 0, title: 'Attic structure — good condition',
@@ -167,6 +210,14 @@ export const STARTER_COMMENTS = [
   { category: 'Attic, Insulation & Ventilation', subgroup: 'Ventilation', severity: 1, title: 'Exhaust fans not terminated to exterior',
     body: 'One or more bathroom or other exhaust fans appeared to terminate into the attic space rather than to the exterior, at the time of the inspection. This can introduce moisture into the attic.',
     recommendation: 'Correction to terminate all exhaust fans to the exterior is recommended.' },
+  { category: 'Attic, Insulation & Ventilation', subgroup: 'Attic Structure', severity: 0, title: 'Attic access — good condition',
+    body: 'The attic access hatch/pull-down stairs appeared to be in good, functional condition at the time of the inspection.' },
+  { category: 'Attic, Insulation & Ventilation', subgroup: 'Attic Structure', severity: 1, title: 'Attic access not insulated/sealed',
+    body: 'The attic access hatch did not appear to be insulated or weatherstripped at the time of the inspection, which can allow conditioned air loss.',
+    recommendation: 'Insulating and sealing the attic access, as an efficiency improvement, is recommended.' },
+  { category: 'Attic, Insulation & Ventilation', subgroup: 'Attic Structure', severity: 2, title: 'Bath fan or dryer duct disconnected in attic',
+    body: 'An exhaust duct routed through the attic appeared to be disconnected or damaged at the time of the inspection, discharging air into the attic space rather than to the exterior.',
+    recommendation: 'Reconnection and repair by a qualified contractor is recommended.' },
 
   // ================================================================ ELECTRICAL
   { category: 'Electrical', subgroup: 'Electrical Panel', severity: 0, title: 'Electrical panel — good condition',
@@ -211,6 +262,23 @@ export const STARTER_COMMENTS = [
   { category: 'Electrical', subgroup: 'Wiring & Safety', severity: 2, title: 'Knob-and-tube wiring active',
     body: 'Active knob-and-tube wiring appeared to be present at the time of the inspection. This legacy wiring method lacks a ground conductor and is commonly a concern for insurers.',
     recommendation: 'Evaluation by a licensed electrician is recommended.' },
+  { category: 'Electrical', subgroup: 'Wiring & Safety', severity: 2, title: 'Reversed polarity at receptacle',
+    body: 'One or more representative receptacles tested showed reversed polarity at the time of the inspection.',
+    recommendation: 'Correction by a licensed electrician is recommended.' },
+  { category: 'Electrical', subgroup: 'Wiring & Safety', severity: 2, title: 'Ungrounded (two-prong) receptacles present',
+    body: 'One or more representative receptacles tested were of the ungrounded, two-prong type at the time of the inspection, consistent with the age of the wiring.',
+    recommendation: 'Evaluation by a licensed electrician for grounding or GFCI protection as an acceptable alternative is recommended.' },
+  { category: 'Electrical', subgroup: 'Wiring & Safety', severity: 1, title: 'Loose or non-functional receptacle/switch',
+    body: 'A representative receptacle or switch was loose at the wall plate or did not respond as intended at the time of the inspection.',
+    recommendation: 'Repair by a licensed electrician is recommended.' },
+  { category: 'Electrical', subgroup: 'Electrical Panel', severity: 1, title: 'Missing or incomplete circuit directory',
+    body: 'The panel circuit directory appeared to be missing, illegible, or incomplete at the time of the inspection.',
+    recommendation: 'Labeling of the panel directory, as routine maintenance, is recommended.' },
+  { category: 'Electrical', subgroup: 'Electrical Panel', severity: 2, title: 'Evidence of overheating / arcing at panel',
+    body: 'Discoloration, melting, or other evidence consistent with prior overheating or arcing was observed at the panel at the time of the inspection.',
+    recommendation: 'Evaluation by a licensed electrician is recommended.' },
+  { category: 'Electrical', subgroup: 'Service & Devices', severity: 1, title: 'Service amperage (fill-in)',
+    body: 'The electrical service was rated at approximately {Fill:amps} amps, based on the panel labeling observed at the time of the inspection.' },
 
   // ================================================================ PLUMBING
   { category: 'Plumbing', subgroup: 'Water Heater', severity: 0, title: 'Water heater — good condition',
@@ -252,6 +320,17 @@ export const STARTER_COMMENTS = [
     body: 'The property is served by a septic system. Septic tanks, drain fields, and their components are underground and not visible for inspection; this inspection does not include evaluation of the septic system. A separate septic evaluation by a licensed septic contractor is recommended, particularly for older or unknown-age systems.' },
   { category: 'Plumbing', subgroup: 'Drain, Waste & Sewage', severity: 0, title: 'Public sewer connection',
     body: 'The property appeared to be connected to the public sewer system at the time of the inspection. The sewer lateral itself is underground and outside the scope of a visual inspection.' },
+  { category: 'Plumbing', subgroup: 'Water Heater', severity: 1, title: 'No thermal expansion tank',
+    body: 'The water heater did not appear to have a thermal expansion tank installed at the time of the inspection. One is typically required where a check valve or pressure regulator creates a closed water system, common in Florida.',
+    recommendation: 'Evaluation by a licensed plumber is recommended.' },
+  { category: 'Plumbing', subgroup: 'Water Heater', severity: 2, title: 'Gas water heater — improper venting',
+    body: 'The vent for a gas-fired water heater appeared to be improperly sloped, disconnected, or of insufficient clearance from combustibles at the time of the inspection.',
+    recommendation: 'Evaluation by a licensed plumber or HVAC contractor is recommended.' },
+  { category: 'Plumbing', subgroup: 'Supply & Fixtures', severity: 1, title: 'Toilet loose at base',
+    body: 'A toilet appeared to be loose or rocking at its base at the time of the inspection, which can indicate a worn wax seal and lead to hidden leakage at the subfloor.',
+    recommendation: 'Evaluation and resealing by a licensed plumber is recommended.' },
+  { category: 'Plumbing', subgroup: 'Drain, Waste & Sewage', severity: 1, title: 'Sump pump present — not tested',
+    body: 'A sump pump is present. Sump pumps are tested using normal operating controls only where accessible and safe to do so; this is not a guarantee of future performance under storm conditions.' },
 
   // ================================================================ HVAC
   { category: 'HVAC', subgroup: 'HVAC System', severity: 0, title: 'HVAC system — good condition',
@@ -277,6 +356,14 @@ export const STARTER_COMMENTS = [
     recommendation: 'Repair by a licensed HVAC contractor is recommended.' },
   { category: 'HVAC', subgroup: 'Airflow & Ductwork', severity: 0, title: 'Thermostat & controls — functional',
     body: 'The thermostat and system controls responded normally when tested at the time of the inspection.' },
+  { category: 'HVAC', subgroup: 'HVAC System', severity: 2, title: 'Evidence of icing on evaporator coil/line set',
+    body: 'Ice or frost was observed on the evaporator coil and/or refrigerant line set at the time of the inspection, which can indicate a refrigerant charge, airflow restriction, or component concern.',
+    recommendation: 'Evaluation by a licensed HVAC contractor is recommended.' },
+  { category: 'HVAC', subgroup: 'Airflow & Ductwork', severity: 1, title: 'Exposed or damaged refrigerant line insulation',
+    body: 'Insulation on the refrigerant line set appeared to be missing, damaged, or deteriorated at the time of the inspection, reducing system efficiency.',
+    recommendation: 'Repair or replacement of line set insulation is recommended.' },
+  { category: 'HVAC', subgroup: 'HVAC System', severity: 0, title: 'Mini-split system — good condition',
+    body: 'The ductless mini-split system(s) appeared to be properly installed and functioning at the time of the inspection, with no visible refrigerant leaks or mounting deficiencies.' },
 
   // ================================================================ INTERIOR
   { category: 'Interior', subgroup: 'Surfaces', severity: 0, title: 'Interior surfaces — good condition',
@@ -295,6 +382,16 @@ export const STARTER_COMMENTS = [
   { category: 'Interior', subgroup: 'Openings & Safety', severity: 1, title: 'Fireplace / chimney — not evaluated for use',
     body: 'A fireplace and/or chimney is present. This inspection is limited to a visual review of readily accessible components; the flue and firebox are not internally inspected as part of a general home inspection.',
     recommendation: 'Evaluation and cleaning by a certified chimney sweep prior to use is recommended.' },
+  { category: 'Interior', subgroup: 'Surfaces', severity: 1, title: 'Flooring — wear consistent with age',
+    body: 'Flooring surfaces appeared to show wear, scuffing, or minor damage consistent with normal use and age at the time of the inspection.' },
+  { category: 'Interior', subgroup: 'Surfaces', severity: 2, title: 'Flooring — damaged or uneven',
+    body: 'Flooring in one or more areas appeared to be damaged, buckled, or uneven at the time of the inspection.',
+    recommendation: 'Evaluation and repair by a qualified flooring contractor is recommended.' },
+  { category: 'Interior', subgroup: 'Openings & Safety', severity: 1, title: 'Window — seal failure (fogging)',
+    body: 'One or more insulated windows showed fogging or condensation between the panes at the time of the inspection, indicating a failed seal on the insulated glass unit. This is a cosmetic/efficiency concern rather than a safety concern.',
+    recommendation: 'Replacement of the affected glass unit(s) is recommended.' },
+  { category: 'Interior', subgroup: 'Openings & Safety', severity: 0, title: 'Smoke/CO alarms — present, not tested for sensitivity',
+    body: 'Smoke and carbon monoxide alarms were observed in representative locations at the time of the inspection. Alarms are checked for presence and the test button response only; sensor sensitivity and expiration are not evaluated as part of a general home inspection.' },
 
   // ================================================================ KITCHEN & APPLIANCES
   { category: 'Kitchen & Appliances', subgroup: 'Cabinets & Counters', severity: 0, title: 'Cabinets & counters — good condition',
@@ -309,6 +406,17 @@ export const STARTER_COMMENTS = [
   { category: 'Kitchen & Appliances', subgroup: 'Appliances', severity: 2, title: 'Appliance found inoperative',
     body: 'This appliance did not respond to normal operating controls at the time of the inspection.',
     recommendation: 'Evaluation by a qualified appliance technician is recommended.' },
+  { category: 'Kitchen & Appliances', subgroup: 'Appliances', severity: 2, title: 'Dishwasher — leak at connections',
+    body: 'A leak or evidence of a prior leak was observed at the dishwasher supply or drain connection at the time of the inspection.',
+    recommendation: 'Evaluation by a licensed plumber or appliance technician is recommended.' },
+  { category: 'Kitchen & Appliances', subgroup: 'Appliances', severity: 3, title: 'Garbage disposal — missing air gap/high loop',
+    body: 'The dishwasher drain did not appear to have an air gap or high loop at the time of the inspection, which is intended to prevent backflow of wastewater into the dishwasher.',
+    recommendation: 'Correction by a licensed plumber is recommended.' },
+  { category: 'Kitchen & Appliances', subgroup: 'Cabinets & Counters', severity: 3, title: 'Missing GFCI protection at countertop receptacles',
+    body: 'Countertop receptacles did not appear to have ground-fault circuit interrupter protection at the time of the inspection, as required for this location.',
+    recommendation: 'Installation of GFCI protection by a licensed electrician is recommended.' },
+  { category: 'Kitchen & Appliances', subgroup: 'Appliances', severity: 1, title: 'Range hood / exhaust — not vented to exterior',
+    body: 'The range hood/exhaust appeared to recirculate rather than vent to the exterior at the time of the inspection.' },
 
   // ================================================================ BATHROOMS
   { category: 'Bathrooms', subgroup: 'Fixtures', severity: 0, title: 'Bathroom fixtures — good condition',
@@ -324,6 +432,15 @@ export const STARTER_COMMENTS = [
   { category: 'Bathrooms', subgroup: 'Ventilation & Moisture', severity: 2, title: 'Evidence of moisture damage',
     body: 'Evidence of moisture damage — staining, softness, or deterioration of finished surfaces — was observed in this bathroom at the time of the inspection.',
     recommendation: 'Evaluation and repair by a qualified contractor, along with correction of the moisture source, is recommended.' },
+  { category: 'Bathrooms', subgroup: 'Fixtures', severity: 1, title: 'Toilet — loose at base',
+    body: 'The toilet appeared to be loose or rocking at its base at the time of the inspection, which can indicate a worn wax seal.',
+    recommendation: 'Evaluation and resealing by a licensed plumber is recommended.' },
+  { category: 'Bathrooms', subgroup: 'Fixtures', severity: 2, title: 'Shower/tub valve — leak or drip',
+    body: 'A leak or persistent drip was observed at the shower or tub valve/faucet at the time of the inspection.',
+    recommendation: 'Repair by a licensed plumber is recommended.' },
+  { category: 'Bathrooms', subgroup: 'Fixtures', severity: 3, title: 'Missing GFCI protection',
+    body: 'Bathroom receptacles did not appear to have ground-fault circuit interrupter protection at the time of the inspection, as required for this location.',
+    recommendation: 'Installation of GFCI protection by a licensed electrician is recommended.' },
 
   // ================================================================ LAUNDRY
   { category: 'Laundry', subgroup: 'Laundry', severity: 0, title: 'Laundry hookups — good condition',
@@ -334,6 +451,12 @@ export const STARTER_COMMENTS = [
   { category: 'Laundry', subgroup: 'Laundry', severity: 2, title: 'Dryer exhaust — damaged or non-rigid duct',
     body: 'The dryer exhaust duct appeared to be damaged, excessively long, or of a non-rigid (flexible vinyl/foil) type at the time of the inspection. Improper dryer venting is a recognized fire hazard due to lint accumulation.',
     recommendation: 'Correction with rigid metal ducting and proper exterior termination, by a qualified contractor, is recommended.' },
+  { category: 'Laundry', subgroup: 'Laundry', severity: 1, title: 'No floor drain / pan under washer',
+    body: 'The laundry area did not appear to have a floor drain or drain pan beneath the washing machine at the time of the inspection, which would help contain an overflow or hose failure.',
+    recommendation: 'Installation of a drain pan, particularly for a laundry area located above finished living space, is recommended.' },
+  { category: 'Laundry', subgroup: 'Laundry', severity: 2, title: 'Dryer power connection — deficiency observed',
+    body: 'A deficiency was observed at the dryer power connection (outlet, cord, or receptacle) at the time of the inspection.',
+    recommendation: 'Evaluation by a licensed electrician is recommended.' },
 
   // ================================================================ GARAGE & CARPORT
   { category: 'Garage & Carport', subgroup: 'Doors & Openers', severity: 0, title: 'Garage door & opener — functional',
@@ -348,6 +471,15 @@ export const STARTER_COMMENTS = [
     recommendation: 'Restoration of the required fire separation is recommended.' },
   { category: 'Garage & Carport', subgroup: 'Structure & Electrical', severity: 1, title: 'Garage floor/slab cracking',
     body: 'Cracking was observed in the garage floor/slab at the time of the inspection, typical of normal curing and settlement and not considered structurally significant at the time of the inspection.' },
+  { category: 'Garage & Carport', subgroup: 'Doors & Openers', severity: 2, title: 'Photo-eye sensors misaligned or missing',
+    body: 'The garage door photo-eye safety sensors appeared to be missing, misaligned, or non-functional at the time of the inspection.',
+    recommendation: 'Adjustment or repair by a qualified garage door technician is recommended.' },
+  { category: 'Garage & Carport', subgroup: 'Doors & Openers', severity: 1, title: 'Vehicle door — damaged panel or track',
+    body: 'The vehicle door showed a damaged panel, roller, or track component at the time of the inspection.',
+    recommendation: 'Repair by a qualified garage door technician is recommended.' },
+  { category: 'Garage & Carport', subgroup: 'Structure & Electrical', severity: 1, title: 'Self-closing door not self-closing',
+    body: 'The door between the garage and living space did not appear to self-close as intended at the time of the inspection.',
+    recommendation: 'Adjustment or repair of the self-closing hinge/hardware is recommended.' },
 
   // ================================================================ POOL & SPA
   { category: 'Pool & Spa', subgroup: 'Pool Equipment', severity: 0, title: 'Pool equipment — functional',
@@ -363,6 +495,14 @@ export const STARTER_COMMENTS = [
   { category: 'Pool & Spa', subgroup: 'Safety Barrier', severity: 4, title: 'Missing / non-compliant safety barrier',
     body: 'The pool did not appear to have a compliant safety barrier — enclosure, fencing, or a self-closing/self-latching gate — at the time of the inspection. This is a drowning hazard, particularly for young children, and is commonly required by Florida law and by insurers.',
     recommendation: 'Installation of a compliant safety barrier is recommended.' },
+  { category: 'Pool & Spa', subgroup: 'Pool Equipment', severity: 0, title: 'Pool heater — good condition',
+    body: 'The pool/spa heater appeared to be properly installed and operated as intended at the time of the inspection.' },
+  { category: 'Pool & Spa', subgroup: 'Pool Equipment', severity: 2, title: 'Pool deck — cracking or settlement',
+    body: 'Cracking or settlement was observed at the pool deck at the time of the inspection.',
+    recommendation: 'Evaluation by a qualified pool/concrete contractor is recommended.' },
+  { category: 'Pool & Spa', subgroup: 'Pool Equipment', severity: 3, title: 'Missing or non-compliant drain cover (anti-entrapment)',
+    body: 'A pool or spa drain cover appeared to be missing, cracked, or not of an anti-entrapment (VGB Act compliant) type at the time of the inspection. This is a suction entrapment hazard.',
+    recommendation: 'Evaluation and correction by a licensed pool contractor is recommended.' },
 
   // ================================================================ GENERAL (fallback, any section)
   { category: 'General', severity: 0, title: 'Serviceable at time of inspection',

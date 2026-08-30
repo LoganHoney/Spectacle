@@ -4,7 +4,8 @@ import { renderFullReport, renderFormReport } from '../report/render.js';
 import { buildFullReportHtml, buildFormReportHtml } from '../report/export.js';
 import { buildReportPdfBlob } from '../report/pdf.js';
 import { buildWindMitOfficialPdf } from '../report/windmitPdfFill.js';
-import { getForm } from '../forms/engine.js';
+import { getForm, FORM_MENU } from '../forms/engine.js';
+import { gatherCandidates, applyCandidates } from '../forms/crosspopulate.js';
 import { getEmailTemplate } from '../report/emailTemplates.js';
 import { buildMergeContext, mergeText } from '../core/merge.js';
 import * as reportClient from '../core/reportClient.js';
@@ -14,16 +15,37 @@ import { go } from '../core/router.js';
 /**
  * Builds a real PDF, hosts it on the signing backend for a shareable link,
  * and hands both to the native share sheet pre-filled with the matching
- * email template — used by the report page's own button and by the "mark
- * complete" prompt on the main job page. Throws if no signing server is set.
+ * email template — used by the report page's own "Send Report" button and
+ * by the "mark complete" prompt on the main job page. Throws if no signing
+ * server is set.
+ *
+ * For a 4-Point/Wind Mit report, this also silently pulls in whatever the
+ * main checklist already answers (roof, panel, HVAC, plumbing) before
+ * building — the same one-click convenience the removed "Generate" buttons
+ * on the inspection page offered, just folded into the actual send action
+ * instead of a separate step. Wind Mit sends the genuine official
+ * OIR-B1-1802 PDF (see windmitPdfFill.js), not the look-alike HTML render.
  */
 export async function emailReportToClient(hydrated, formId) {
   if (!reportClient.isConfigured(hydrated.settings)) {
     throw new Error('No signing server configured — set one in Setup.');
   }
-  const { property, client } = hydrated;
+  const { inspection, property, client } = hydrated;
   const base = slug([property ? store.propertyLabel(property).split(',')[0] : client?.name, formId].filter(Boolean).join(' ')) || 'inspection-report';
-  const pdfBlob = await buildReportPdfBlob(hydrated, formId);
+
+  let pdfBlob;
+  if (formId === 'fourpoint' || formId === 'windmit') {
+    inspection.forms[formId] = inspection.forms[formId] || {};
+    const values = inspection.forms[formId];
+    const candidates = gatherCandidates(inspection, formId, values).filter((c) => c.checkedByDefault);
+    if (candidates.length) {
+      applyCandidates(values, candidates);
+      await store.saveInspection(inspection);
+    }
+    pdfBlob = formId === 'windmit' ? await buildWindMitOfficialPdf(values) : await buildReportPdfBlob(hydrated, formId);
+  } else {
+    pdfBlob = await buildReportPdfBlob(hydrated, formId);
+  }
   const { viewUrl } = await reportClient.uploadReport(hydrated.settings, pdfBlob, `${base}.pdf`);
 
   const templateKey = formId === 'fourpoint' ? 'fourpoint' : formId === 'windmit' ? 'windmit' : 'full';
@@ -72,7 +94,7 @@ export async function reportView(view, { id, form: formId }) {
   const form = formId ? getForm(formId) : null;
 
   setTopbar({
-    title: form ? form.code : 'Report',
+    title: form ? (FORM_MENU.find((f) => f.id === formId)?.name || form.title) : 'Report',
     back: () => go(`/inspection/${id}`),
     actions: [],
   });
@@ -84,11 +106,11 @@ export async function reportView(view, { id, form: formId }) {
       <span class="spacer"></span>
     </div>
     <div class="row wrap no-print" style="margin:0 0 18px;gap:8px">
-      <button class="btn primary" data-print>Print / Save PDF</button>
-      <button class="btn" data-export>Export Digital Copy</button>
-      ${raw(navigator.share ? '<button class="btn ghost" data-share>Share</button>' : '')}
-      ${raw(reportClient.isConfigured(hydrated.settings) ? '<button class="btn ghost" data-email-report>Email Client — Send PDF + Link</button>' : '')}
+      ${raw(reportClient.isConfigured(hydrated.settings) ? '<button class="btn primary" data-email-report>Send Report</button>' : '')}
       ${raw(formId === 'windmit' ? '<button class="btn ghost" data-windmit-official>Download Official State Form (PDF)</button>' : '')}
+      <button class="btn ghost" data-print>Print / Save PDF</button>
+      <button class="btn ghost" data-export>Export Digital Copy</button>
+      ${raw(navigator.share ? '<button class="btn ghost" data-share>Share</button>' : '')}
     </div>
     <div id="report-root" class="rp-root"><div class="empty small">Building report…</div></div>
   `;
@@ -152,7 +174,14 @@ export async function reportView(view, { id, form: formId }) {
   view.querySelector('[data-windmit-official]')?.addEventListener('click', async () => {
     toast('Building official form…', 15000);
     try {
-      const blob = await buildWindMitOfficialPdf(inspection.forms.windmit || {});
+      inspection.forms.windmit = inspection.forms.windmit || {};
+      const values = inspection.forms.windmit;
+      const candidates = gatherCandidates(inspection, 'windmit', values).filter((c) => c.checkedByDefault);
+      if (candidates.length) {
+        applyCandidates(values, candidates);
+        await store.saveInspection(inspection);
+      }
+      const blob = await buildWindMitOfficialPdf(values);
       downloadBlob(blob, `${filename().replace(/\.html$/, '')}-OIR-B1-1802.pdf`);
       toast('Official form saved');
     } catch (err) {

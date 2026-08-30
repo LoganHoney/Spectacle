@@ -1,20 +1,17 @@
 import * as store from '../core/store.js';
 import * as media from '../core/media.js';
-import { html, raw, esc, on, setTopbar, sheet, chooseSheet, toast, confirmSheet, debounce, fmtDate, today, downloadBlob, slug } from '../core/ui.js';
+import { html, raw, esc, on, setTopbar, sheet, chooseSheet, toast, confirmSheet, debounce, fmtDate, today } from '../core/ui.js';
 import { go } from '../core/router.js';
 import { editClientSheet, editPropertySheet } from './clients.js';
 import { editContactSheet } from './contacts.js';
 import { isFlagged } from './checklist.js';
-import { FORM_MENU, getForm, completion, prefill } from '../forms/engine.js';
-import { gatherCandidates, applyCandidates } from '../forms/crosspopulate.js';
+import { FORM_MENU, getForm, completion } from '../forms/engine.js';
 import { statusCls } from './dashboard.js';
 import { sendRemoteSigningLink } from './agreement.js';
 import * as signing from '../core/signingClient.js';
 import { emailReportToClient } from './report.js';
 import * as reportClient from '../core/reportClient.js';
 import { COVER_PHOTO_SLOT } from '../report/render.js';
-import { buildReportPdfBlob } from '../report/pdf.js';
-import { buildWindMitOfficialPdf } from '../report/windmitPdfFill.js';
 import { mountPhotos } from './photos.js';
 
 function agreementStatus(inspection) {
@@ -198,83 +195,6 @@ export async function inspectionWorkspace(view, { id }) {
       await persistNow();
       render();
     });
-
-    on(view, 'click', '[data-generate-form]', async (_e, el) => {
-      await generateFromInspection(el.dataset.generateForm);
-    });
-  }
-
-  /**
-   * One-click path from "finished the walkthrough" to "have the actual PDF
-   * in hand" — prefills the form the same way opening it fresh would, then
-   * silently applies every crosspopulate candidate the checklist already
-   * answers (the same data "Copy from Inspection" offers on the form page
-   * itself, just applied without a per-field review sheet), then builds and
-   * downloads a real PDF directly rather than dropping the inspector on an
-   * HTML preview page they'd have to know to act on further. Nothing already
-   * on the form gets overwritten: gatherCandidates only proposes a field
-   * when it's currently blank or unchanged.
-   *
-   * Wind Mit downloads the genuine OIR-B1-1802 state form (real AcroForm
-   * fields on the official floir.gov master — see windmitPdfFill.js). 4-Point
-   * doesn't have a true fillable state-form source yet (see report.js's
-   * earlier chat history), so it downloads a real PDF rendered from the
-   * official-form-styled HTML report — a faithful reproduction, not the
-   * literal government PDF bytes.
-   */
-  async function generateFromInspection(formId) {
-    inspection.forms[formId] = inspection.forms[formId] || {};
-    const values = inspection.forms[formId];
-    if (Object.keys(values).length === 0) Object.assign(values, prefill(formId, { inspection, client, property, settings }));
-
-    const candidates = gatherCandidates(inspection, formId, values).filter((c) => c.checkedByDefault);
-    if (candidates.length) applyCandidates(values, candidates);
-    await persistNow();
-
-    toast('Building PDF…', 20000);
-    try {
-      const base = slug([property ? store.propertyLabel(property).split(',')[0] : client?.name, formId].filter(Boolean).join(' ')) || 'inspection-form';
-      const title = formId === 'windmit' ? 'Wind Mitigation Report' : '4-Point Inspection Report';
-      let blob, filename;
-      if (formId === 'windmit') {
-        blob = await buildWindMitOfficialPdf(values);
-        filename = `${base}-OIR-B1-1802.pdf`;
-      } else {
-        const fresh = await store.hydrate(id); // re-hydrate so the PDF reflects the crosspopulate values just applied
-        blob = await buildReportPdfBlob(fresh, formId);
-        filename = `${base}.pdf`;
-      }
-      const pulledMsg = candidates.length ? ` — pulled ${candidates.length} field${candidates.length === 1 ? '' : 's'} from the checklist` : '';
-      await shareOrDownloadPdf(blob, filename, title);
-      toast(`PDF ready${pulledMsg}`);
-    } catch (err) {
-      console.error(err);
-      toast(`Could not build the PDF: ${err.message}`);
-    }
-  }
-
-  /**
-   * Hands the built PDF to the OS share sheet when available — on iOS this
-   * is what gives both a preview (tap the file thumbnail before choosing
-   * anything) and a one-tap "Mail" option, without needing two separate
-   * flows. Falls back to a plain download wherever Web Share (or file
-   * sharing specifically) isn't supported. A cancelled share is left alone,
-   * not treated as a failure that should fall back to downloading instead.
-   */
-  async function shareOrDownloadPdf(blob, filename, title) {
-    if (navigator.share) {
-      const file = new File([blob], filename, { type: 'application/pdf' });
-      try {
-        const shareData = { title, files: [file] };
-        if (navigator.canShare && !navigator.canShare(shareData)) throw new Error('file sharing unsupported');
-        await navigator.share(shareData);
-        return;
-      } catch (err) {
-        if (err?.name === 'AbortError') return;
-        // fall through to a plain download
-      }
-    }
-    downloadBlob(blob, filename);
   }
 
   async function render() {
@@ -351,11 +271,6 @@ export async function inspectionWorkspace(view, { id }) {
       </div>
 
       <h2>Insurance Forms</h2>
-      <div class="small muted" style="margin:-4px 0 10px">Generate pulls in everything the checklist already covers (roof, panel, HVAC, plumbing) so there's little left to type — review and fill in the rest on the form itself.</div>
-      <div class="row wrap" style="gap:8px;margin-bottom:12px">
-        <button class="btn" data-generate-form="fourpoint">Generate 4-Point Report</button>
-        <button class="btn" data-generate-form="windmit">Generate Wind Mitigation</button>
-      </div>
       <div class="list">
         ${raw(formCards.map((f) => `<a class="item" href="#/inspection/${id}/form/${f.id}">
           <div class="g"><div class="t">${esc(f.name)}</div><div class="s">${esc(f.code)}</div></div>

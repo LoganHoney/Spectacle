@@ -9,30 +9,40 @@
 //
 // Exposed as window.buildWindMitFields(pdfBytes) -> Promise<Uint8Array>
 
-const CB = 9; // checkbox/radio widget size in points, matches the □ glyph
-const TF_H = 11; // default text field height
+// The □ glyph on this form measures ~6pt wide x ~10pt tall (measured
+// directly off every occurrence via pdf.js text-layer extraction, not
+// guessed) — narrower and taller than a square. A 9x9 box was visibly
+// oversized/squarish next to the real glyph; this matches it precisely.
+const CB_W = 6.5;
+const CB_H = 10;
+
+// Filled-in answers read as navy, bold — the printed form's own text stays
+// plain black, so it's obvious at a glance which text is the inspector's
+// answer versus the form's own wording.
+const { rgb } = window.PDFLib;
+const NAVY = rgb(0, 0, 0.5);
 
 function addRadioGroup(form, doc, name, options) {
   const rg = form.createRadioGroup(name);
   for (const o of options) {
     const page = doc.getPages()[o.page];
-    rg.addOptionToPage(o.value, page, { x: o.x, y: o.y - 1, width: CB, height: CB });
+    rg.addOptionToPage(o.value, page, { x: o.x, y: o.y - 1, width: CB_W, height: CB_H });
   }
   return rg;
 }
 
 function addCheckBox(form, doc, name, page, x, y) {
   const cb = form.createCheckBox(name);
-  cb.addToPage(doc.getPages()[page], { x, y: y - 1, width: CB, height: CB });
+  cb.addToPage(doc.getPages()[page], { x, y: y - 1, width: CB_W, height: CB_H });
   return cb;
 }
 
-function addText(form, doc, name, page, x, y, width, height = TF_H) {
+function addText(form, doc, name, page, x, y, width, height = 11) {
   const tf = form.createTextField(name);
   // No border/background — this sits directly on the printed form's own
   // blank line, so a box around it would look like a UI widget pasted onto
   // a government form rather than typed text filling in the blank.
-  tf.addToPage(doc.getPages()[page], { x, y, width, height, borderWidth: 0 });
+  tf.addToPage(doc.getPages()[page], { x, y, width, height, borderWidth: 0, textColor: NAVY });
   tf.setFontSize(9);
   return tf;
 }
@@ -76,9 +86,13 @@ window.buildWindMitFields = async function (pdfBytes) {
   ]);
 
   // ---- Q3 Roof Slope (page 0) ----
+  // The "< 6:12" checkbox's □ glyph is embedded at the tail of the merged
+  // text run "(≥ 6:12) □" (x=142.1, width=40.8) rather than as its own
+  // standalone glyph — x corrected to the glyph's actual position within
+  // that run, not the run's start.
   addRadioGroup(form, doc, 'q3_answer', [
     { value: '≥ 6:12', page: 0, x: 36, y: 289.4 },
-    { value: '< 6:12', page: 0, x: 142.1, y: 289.4 },
+    { value: '< 6:12', page: 0, x: 176.9, y: 289.4 },
   ]);
 
   // ---- Q4.1 Roof Covering Type — independent per-row checkboxes ----

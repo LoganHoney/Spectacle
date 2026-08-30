@@ -1,4 +1,4 @@
-import { getForm, visible, completion, slotKey, prefill, evaluateComputed, missingCritical } from '../forms/engine.js';
+import { getForm, FORM_MENU, visible, completion, slotKey, prefill, evaluateComputed, missingCritical } from '../forms/engine.js';
 import { CROSSPOPULATE_FORMS, gatherCandidates, applyCandidates } from '../forms/crosspopulate.js';
 import * as store from '../core/store.js';
 import * as media from '../core/media.js';
@@ -37,7 +37,7 @@ export async function formView(view, { id, formId }) {
   const mediaSlots = new Set((await media.mediaFor(id)).map((m) => m.slot));
 
   setTopbar({
-    title: form.code, back: () => go(`/inspection/${id}`),
+    title: FORM_MENU.find((f) => f.id === formId)?.name || form.title, back: () => go(`/inspection/${id}`),
     actions: [{ label: 'Report', onClick: () => go(`/inspection/${id}/report`) }],
   });
 
