@@ -1,17 +1,20 @@
 import * as store from '../core/store.js';
 import * as media from '../core/media.js';
-import { html, raw, esc, on, setTopbar, sheet, chooseSheet, toast, confirmSheet, debounce, fmtDate, today } from '../core/ui.js';
+import { html, raw, esc, on, setTopbar, sheet, chooseSheet, toast, confirmSheet, debounce, fmtDate, today, downloadBlob, slug } from '../core/ui.js';
 import { go } from '../core/router.js';
 import { editClientSheet, editPropertySheet } from './clients.js';
 import { editContactSheet } from './contacts.js';
 import { isFlagged } from './checklist.js';
-import { FORM_MENU, getForm, completion } from '../forms/engine.js';
+import { FORM_MENU, getForm, completion, prefill } from '../forms/engine.js';
+import { gatherCandidates, applyCandidates } from '../forms/crosspopulate.js';
 import { statusCls } from './dashboard.js';
 import { sendRemoteSigningLink } from './agreement.js';
 import * as signing from '../core/signingClient.js';
 import { emailReportToClient } from './report.js';
 import * as reportClient from '../core/reportClient.js';
 import { COVER_PHOTO_SLOT } from '../report/render.js';
+import { buildReportPdfBlob } from '../report/pdf.js';
+import { buildWindMitOfficialPdf } from '../report/windmitPdfFill.js';
 import { mountPhotos } from './photos.js';
 
 function agreementStatus(inspection) {
@@ -20,6 +23,12 @@ function agreementStatus(inspection) {
   if (a?.remoteToken) return { label: 'Sent — pending', cls: 'accent' };
   if (a?.inspectorSignature || a?.customer1Signature) return { label: 'Partially signed', cls: 'warn' };
   return { label: 'Not signed', cls: '' };
+}
+
+function checklistButtonLabel(stats) {
+  if (!stats.answered) return 'Start Inspection';
+  if (stats.total && stats.answered === stats.total) return 'Review Inspection';
+  return 'Continue Inspection';
 }
 
 function computeChecklistStats(inspection) {
@@ -189,6 +198,55 @@ export async function inspectionWorkspace(view, { id }) {
       await persistNow();
       render();
     });
+
+    on(view, 'click', '[data-generate-form]', async (_e, el) => {
+      await generateFromInspection(el.dataset.generateForm);
+    });
+  }
+
+  /**
+   * One-click path from "finished the walkthrough" to "have the actual PDF
+   * in hand" — prefills the form the same way opening it fresh would, then
+   * silently applies every crosspopulate candidate the checklist already
+   * answers (the same data "Copy from Inspection" offers on the form page
+   * itself, just applied without a per-field review sheet), then builds and
+   * downloads a real PDF directly rather than dropping the inspector on an
+   * HTML preview page they'd have to know to act on further. Nothing already
+   * on the form gets overwritten: gatherCandidates only proposes a field
+   * when it's currently blank or unchanged.
+   *
+   * Wind Mit downloads the genuine OIR-B1-1802 state form (real AcroForm
+   * fields on the official floir.gov master — see windmitPdfFill.js). 4-Point
+   * doesn't have a true fillable state-form source yet (see report.js's
+   * earlier chat history), so it downloads a real PDF rendered from the
+   * official-form-styled HTML report — a faithful reproduction, not the
+   * literal government PDF bytes.
+   */
+  async function generateFromInspection(formId) {
+    inspection.forms[formId] = inspection.forms[formId] || {};
+    const values = inspection.forms[formId];
+    if (Object.keys(values).length === 0) Object.assign(values, prefill(formId, { inspection, client, property, settings }));
+
+    const candidates = gatherCandidates(inspection, formId, values).filter((c) => c.checkedByDefault);
+    if (candidates.length) applyCandidates(values, candidates);
+    await persistNow();
+
+    toast('Building PDF…', 20000);
+    try {
+      const base = slug([property ? store.propertyLabel(property).split(',')[0] : client?.name, formId].filter(Boolean).join(' ')) || 'inspection-form';
+      if (formId === 'windmit') {
+        const blob = await buildWindMitOfficialPdf(values);
+        downloadBlob(blob, `${base}-OIR-B1-1802.pdf`);
+      } else {
+        const fresh = await store.hydrate(id); // re-hydrate so the PDF reflects the crosspopulate values just applied
+        const blob = await buildReportPdfBlob(fresh, formId);
+        downloadBlob(blob, `${base}.pdf`);
+      }
+      toast(candidates.length ? `PDF saved — pulled ${candidates.length} field${candidates.length === 1 ? '' : 's'} from the checklist` : 'PDF saved');
+    } catch (err) {
+      console.error(err);
+      toast(`Could not build the PDF: ${err.message}`);
+    }
   }
 
   async function render() {
@@ -255,20 +313,26 @@ export async function inspectionWorkspace(view, { id }) {
         ? '<button class="btn wide" data-email-agreement style="margin:-4px 0 14px">Email Client — Send Agreement to Sign</button>'
         : '')}
 
+      <h2>Main Inspection</h2>
+      <a class="btn primary wide" href="#/inspection/${id}/checklist" style="margin-bottom:6px">${esc(checklistButtonLabel(checklistStats))}</a>
+      <div class="row wrap" style="gap:6px;margin-bottom:18px">
+        <span class="small muted">${checklistStats.total} items across ${inspection.template.sections.length} sections</span>
+        <span class="spacer"></span>
+        ${raw(checklistStats.flagged ? `<span class="pill bad">${checklistStats.flagged} flagged</span>` : '')}
+        <span class="pill ${checklistStats.answered === checklistStats.total && checklistStats.total ? 'ok' : 'accent'}">${checklistStats.answered}/${checklistStats.total}</span>
+      </div>
+
       <h2>Insurance Forms</h2>
+      <div class="small muted" style="margin:-4px 0 10px">Generate pulls in everything the checklist already covers (roof, panel, HVAC, plumbing) so there's little left to type — review and fill in the rest on the form itself.</div>
+      <div class="row wrap" style="gap:8px;margin-bottom:12px">
+        <button class="btn" data-generate-form="fourpoint">Generate 4-Point Report</button>
+        <button class="btn" data-generate-form="windmit">Generate Wind Mitigation</button>
+      </div>
       <div class="list">
         ${raw(formCards.map((f) => `<a class="item" href="#/inspection/${id}/form/${f.id}">
           <div class="g"><div class="t">${esc(f.name)}</div><div class="s">${esc(f.code)}</div></div>
           <span class="pill ${f.c.pct === 100 ? 'ok' : f.c.done ? 'accent' : ''}">${f.c.done}/${f.c.total}</span>
           <span class="chev">&#8250;</span></a>`).join(''))}
-      </div>
-
-      <div class="list">
-        <a class="item" href="#/inspection/${id}/checklist">
-          <div class="g"><div class="t">Checklist</div><div class="s">${checklistStats.total} items across ${inspection.template.sections.length} sections</div></div>
-          ${raw(checklistStats.flagged ? `<span class="pill bad">${checklistStats.flagged} flagged</span>` : '')}
-          <span class="pill ${checklistStats.answered === checklistStats.total && checklistStats.total ? 'ok' : 'accent'}">${checklistStats.answered}/${checklistStats.total}</span>
-          <span class="chev">&#8250;</span></a>
       </div>
 
       <h2>Job Notes & Summary</h2>

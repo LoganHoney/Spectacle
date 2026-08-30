@@ -9,7 +9,6 @@ import { slotKey, getForm, visible as fieldVisible } from '../forms/engine.js';
 
 const SEV_LABEL = { 0: 'Info', 1: 'Maintenance', 2: 'Minor', 3: 'Major', 4: 'Safety' };
 const SEV_COLOR = { 0: '#64748b', 1: '#0284c7', 2: '#b45309', 3: '#dc2626', 4: '#7c2d12' };
-const NEEDS_ATTENTION = new Set(['Marginal', 'Defective', 'No']);
 
 const displayValue = (v) => (Array.isArray(v) ? v.join(', ') : v);
 
@@ -17,39 +16,58 @@ const displayValue = (v) => (Array.isArray(v) ? v.join(', ') : v);
  * Renders the full inspection report as an HTML string. Media is embedded as
  * <img>/<video> tags whose `src` is provided by `urlFor(mediaRecord)` — the
  * caller controls whether that's an object URL (preview) or a data URL (export).
+ *
+ * Page order (Cover → Executive Summary → Letter → Table of Contents →
+ * Introduction, then the rest) and the Introduction's wording are matched
+ * page-for-page against a real Spectora-generated sample report at the
+ * inspector's explicit request — clients and agents who've seen that report
+ * shape expect it, and the Introduction's liability language is copied
+ * verbatim rather than paraphrased.
  */
 export async function renderFullReport({ inspection, client, property, settings, jobContacts }, urlFor) {
   const allMedia = await media.mediaFor(inspection.id);
   const bySlot = groupBy(allMedia, (m) => m.slot);
 
-  const flagged = [];
   const inSummary = [];
   for (const section of inspection.template.sections) {
     for (const item of section.items) {
       const r = inspection.data[item.id];
       if (!r || r.hidden) continue; // "Hide" keeps the answer recorded but off the client-facing report
-      const isFlag = NEEDS_ATTENTION.has(r.value) || (r.severity && Number(r.severity) >= 2);
-      if (isFlag) flagged.push({ section, item, r });
       if (r.inSummary) inSummary.push({ section, item, r });
     }
   }
-  flagged.sort((a, b) => (b.r.severity || 0) - (a.r.severity || 0));
 
+  // Rendered in document order so `nav` is filled in correctly by the time
+  // tocBlock (called last) reads back through it — string concatenation
+  // order below is independent of this call order, so the actual page
+  // sequence is set entirely by the returned template at the bottom.
   const nav = [];
-  const body = `
-    ${inSummary.length ? executiveSummaryBlock(inSummary, bySlot, urlFor, nav) : ''}
-    ${summaryBlock(inspection, flagged, nav)}
-    ${flagged.length ? findingsBlock(flagged, bySlot, urlFor, nav) : ''}
-    ${sectionsBlock(inspection, bySlot, urlFor, nav)}
-    ${formsSummaryBlock(inspection, bySlot, urlFor, nav)}
-    ${signatureBlock(inspection, settings, nav)}
-    ${footerBlock(settings)}
-  `;
+  const executiveSummaryHtml = executiveSummaryBlock(inSummary, bySlot, urlFor, nav);
+  const letterHtml = letterBlock(inspection, client, property, settings);
+  const introHtml = introBlock(nav);
+  const inspectionReportHtml = inspectionReportBlock(inspection, property, nav);
+  const sectionsHtml = sectionsBlock(inspection, bySlot, urlFor, nav);
+  const formsHtml = formsSummaryBlock(inspection, bySlot, urlFor, nav);
+  const conclusionHtml = conclusionBlock(inspection, nav);
+  const emergencyHtml = emergencyControlsBlock(inspection, bySlot, urlFor, nav);
+  const environmentalHtml = environmentalConcernsBlock(nav);
+  const signatureHtml = signatureBlock(inspection, settings, nav);
+  const tocHtml = tocBlock(nav);
 
   return `
     ${coverBlock(inspection, client, property, settings, jobContacts, bySlot, urlFor)}
-    ${jumpNavBlock(nav)}
-    ${body}
+    ${executiveSummaryHtml}
+    ${letterHtml}
+    ${tocHtml}
+    ${introHtml}
+    ${inspectionReportHtml}
+    ${sectionsHtml}
+    ${formsHtml}
+    ${conclusionHtml}
+    ${emergencyHtml}
+    ${environmentalHtml}
+    ${signatureHtml}
+    ${footerBlock(settings)}
   `;
 }
 
@@ -61,9 +79,10 @@ export async function renderFormReport({ inspection, client, property, settings,
   const nav = [];
 
   const body = `
-    <section class="rp-block">
+    <section class="rp-block wf">
+      <div class="wf-code">${esc(form.code)}${form.revision ? ` — ${esc(form.revision)}` : ''}</div>
       ${form.intro ? `<p class="rp-note">${esc(form.intro)}</p>` : ''}
-      ${form.sections.map((s) => formSectionHtml(s, values, formId, bySlot, urlFor, nav)).join('')}
+      ${officialFormSectionsHtml(form, values, formId, bySlot, urlFor, nav)}
     </section>
     ${footerBlock(settings)}
   `;
@@ -123,6 +142,57 @@ function coverBlock(inspection, client, property, settings, jobContacts, bySlot,
   </header>`;
 }
 
+// The cover letter. Deliberately un-headed and left out of `nav` — the
+// sample report it's matched against has no Table of Contents entry for it,
+// just a single unlabeled page between the Executive Summary and the TOC.
+function letterBlock(inspection, client, property, settings) {
+  const addrLine1 = property?.address || '';
+  const addrLine2 = property ? [property.city, [property.state, property.zip].filter(Boolean).join(' ')].filter(Boolean).join(', ') : '';
+  const clientName = client?.name || 'Client';
+  const dateLong = fmtFull(inspection.inspectedAt || inspection.scheduledAt);
+  const inspectorName = inspection.inspectorName || settings.inspectorName || '';
+  const title = settings.inspectorTitle || 'Owner';
+
+  return `
+  <section class="rp-block rp-letter">
+    <p class="rp-body">Dear ${esc(clientName)},</p>
+    <p class="rp-body">We have enclosed the report for the property inspection we conducted for you on ${esc(dateLong)} at:</p>
+    <p class="rp-body rp-letter-addr">${esc(addrLine1)}${addrLine2 ? `<br>${esc(addrLine2)}` : ''}</p>
+    <p class="rp-body">Our report is designed to be clear, easy to understand, and helpful. Please take the time to review it carefully. If there is anything you would like us to explain, or if there is other information you would like, please feel free to call us. We would be happy to answer any questions you may have.</p>
+    <p class="rp-body">Thank you for the opportunity to be of service to you.</p>
+    <p class="rp-body">Sincerely,</p>
+    ${settings.savedSignature ? `<img class="rp-sig" src="${settings.savedSignature}" alt="Inspector signature">` : ''}
+    ${inspectorName ? `<p class="rp-body rp-letter-sign">${esc(inspectorName)}</p>` : ''}
+    <p class="rp-body rp-letter-sign">${esc(title)}${settings.companyName ? `, ${esc(settings.companyName)}` : ''}</p>
+  </section>`;
+}
+
+// Table of Contents. Lists every level-2 heading collected while rendering
+// everything else (see renderFullReport) — called last so `nav` is complete.
+// Page numbers are left blank here (there's no such thing as a "page" in an
+// on-screen/HTML export); js/report/pdf.js fills the `data-toc-for` spans in
+// with real page numbers after layout, once it knows where each heading
+// actually landed.
+function tocBlock(nav) {
+  const entries = nav.filter((n) => n.level === 2);
+  if (!entries.length) return '';
+  return `
+  <section class="rp-block rp-toc-section">
+    <h2 class="rp-h2">Table of Contents</h2>
+    <div class="rp-toc">
+      ${entries.map((n) => `
+        <div class="rp-toc-row">
+          <a class="rp-toc-label" href="#${n.id}">${esc(n.label)}</a>
+          <span class="rp-toc-dots"></span>
+          <span class="rp-toc-num" data-toc-for="${n.id}"></span>
+        </div>`).join('')}
+    </div>
+  </section>`;
+}
+
+// Simple in-page "jump to section" nav — still used by the (much shorter)
+// single-form 4-Point / Wind Mitigation reports, where a full paginated
+// Table of Contents would be overkill.
 function jumpNavBlock(nav) {
   if (nav.length < 2) return '';
   return `
@@ -148,7 +218,9 @@ function executiveSummaryBlock(items, bySlot, urlFor, nav) {
   return `
   <section class="rp-block">
     ${heading('h2', 'rp-h2', 'Executive Summary', nav, 2)}
-    ${items.map(({ section, item, r }) => `
+    <p class="rp-body">This is a summary review of the inspectors' findings during this inspection. However, it does not contain every detailed observation. This is provided as an additional service to our client, and is presented in the form of a listing of the items which, in the opinion of your inspector, merit further attention, investigation, or improvement. Some of these conditions are of such a nature as to require repair or modification by a skilled craftsman, technician, or specialist. Others can be easily handled by a homeowner such as yourself.</p>
+    <p class="rp-body">Often, following the inspector's advice will result in improved performance and/or extended life of the component(s) in question. In listing these items, your inspector is not offering any opinion as to who, among the parties to this transaction, should take responsibility for addressing any of these concerns. As with most of the facets of your transaction, we recommend consultation with your Real Estate Professional${items.length ? ' for further advice with regards to the following items:' : ' for further advice regarding your transaction.'}</p>
+    ${items.length ? items.map(({ section, item, r }) => `
       <div class="rp-finding" style="${r.severity ? `border-left-color:${SEV_COLOR[r.severity] || SEV_COLOR[2]}` : 'border-left-color:#94a3b8'}">
         <div class="rp-finding-h">
           ${r.severity !== undefined ? `<span class="rp-sevtag" style="background:${SEV_COLOR[r.severity] || SEV_COLOR[2]}">${esc(SEV_LABEL[r.severity] ?? '')}</span>` : ''}
@@ -158,46 +230,68 @@ function executiveSummaryBlock(items, bySlot, urlFor, nav) {
         ${ratingLine(item, section, r)}
         ${r.comment ? `<p class="rp-body">${nl2br(esc(r.comment))}</p>` : ''}
         ${mediaGrid(bySlot[slotKey('item', item.id)], urlFor)}
-      </div>`).join('')}
+      </div>`).join('') : '<p class="rp-muted">No items were flagged for this summary during the inspection.</p>'}
   </section>`;
 }
 
-function summaryBlock(inspection, flagged, nav) {
-  const counts = [1, 2, 3, 4].map((s) => ({ s, n: flagged.filter((f) => Number(f.r.severity || 2) === s).length }));
+// Introduction — page 5 of the sample report this was matched against. The
+// inspector asked for this exact wording specifically for the legal/liability
+// coverage it provides, so this is copied verbatim, not paraphrased. Do not
+// edit this text without the inspector's sign-off.
+function introBlock(nav) {
+  const paragraphs = [
+    `We have inspected the major structural components and mechanical systems for signs of significant non-performance, excessive or unusual wear, and general state of repair. For the purposes of this report, a system or component is considered to have a major visual defect only if it is currently unsafe or not functioning and cannot be replaced or rendered safe or functional for less than $1,000. The following report provides an overview of the conditions observed at the time of the inspection; however, there may be specific references to areas and items that were inaccessible. We can make no representations regarding conditions that may be present but were concealed or inaccessible for review.`,
+    `With access and an opportunity for inspection, reportable conditions may be discovered, and inspection of these areas will be performed only upon arrangement and at additional cost after access is provided. We do not review plans, permits, recall lists, or government and local municipality documents. Information regarding recalled appliances, fixtures, and any other items in this property can be found on the Consumer Product Safety website; these items may be present but are not reviewed as part of this service.`,
+    `Our recommendations are professional opinions regarding conditions present and are not intended as criticisms of the building. As a courtesy, the inspector may list items they feel have priority in the Inspection Summary portion of the report. Although these items may be of higher priority in the opinion of the inspector, it is ultimately the client's responsibility to review the entire report. If the client has questions regarding any listed items, please contact the inspector for further consultation. Lower priority conditions contained in the body of the report that are neglected may become higher priority conditions over time. Do not equate low cost with low priority, as cost should not be the primary motivation for performing repairs; all repair and upgrade recommendations are important and require attention.`,
+    `This report is a "snapshot" of the property on the date of the inspection. The structure and all related components will continue to deteriorate or wear out with time and may not be in the same condition at the close of escrow.`,
+    `There are several factors that influence why a specific condition may not have been observed during the inspection. First, environmental factors such as weather conditions play a significant role; for example, it may have been clear and sunny on the day of the inspection with no rain for several days prior. Second, a home inspector is a generalist and not a specialist in every trade; an HVAC or plumbing contractor will have considerably more specialized training and expertise in diagnosing specific system issues. Finally, the duration of the inspection and the fact that it is a non-invasive visual walk-through must be considered. While we diligently cover everything possible, the scope of a home inspection is limited and not designed to be an exhaustive or invasive look behind finished surfaces. A home inspection is intended to give the buyer a better understanding of what they are purchasing, not to eliminate all risks.`,
+    `This report is not intended for use by anyone other than the client named herein, and no other persons should rely upon this information. Client agrees to indemnify, defend, and hold the inspector harmless from any third-party claims arising out of the client's unauthorized distribution of the inspection report.`,
+    `By accepting this report, you acknowledge that you have reviewed and are in agreement with all terms contained in the inspection agreement provided by the inspector who prepared this report.`,
+  ];
   return `
-  <section class="rp-block">
-    ${heading('h2', 'rp-h2', 'Summary', nav, 2)}
-    ${inspection.summaryNote ? `<p class="rp-body">${nl2br(esc(inspection.summaryNote))}</p>` : ''}
-    <div class="rp-sevrow">
-      ${counts.map(({ s, n }) => `<div class="rp-sevstat" style="border-color:${SEV_COLOR[s]}">
-        <div class="rp-sevn" style="color:${SEV_COLOR[s]}">${n}</div>
-        <div class="rp-sevl">${esc(SEV_LABEL[s])}</div></div>`).join('')}
-    </div>
+  <section class="rp-block rp-intro-page">
+    ${heading('h2', 'rp-h2', 'Introduction', nav, 2)}
+    ${paragraphs.map((p) => `<p class="rp-body">${esc(p)}</p>`).join('')}
   </section>`;
 }
 
-function findingsBlock(flagged, bySlot, urlFor, nav) {
+function computeAge(property, inspection) {
+  const yb = Number(property?.yearBuilt);
+  if (!yb) return null;
+  const d = inspection.inspectedAt || inspection.scheduledAt;
+  const insYear = d ? new Date(`${d}T12:00:00`).getFullYear() : new Date().getFullYear();
+  const age = insYear - yb;
+  return age >= 0 ? age : null;
+}
+
+function inspectionReportBlock(inspection, property, nav) {
+  const age = computeAge(property, inspection);
+  const hasWeather = inspection.weather || inspection.tempF;
   return `
   <section class="rp-block">
-    ${heading('h2', 'rp-h2', 'Findings Requiring Attention', nav, 2)}
-    ${flagged.map(({ section, item, r }) => `
-      <div class="rp-finding" style="border-left-color:${SEV_COLOR[r.severity || 2]}">
-        <div class="rp-finding-h">
-          <span class="rp-sevtag" style="background:${SEV_COLOR[r.severity || 2]}">${esc(SEV_LABEL[r.severity || 2])}</span>
-          <strong>${esc(item.label)}</strong>
-          <span class="rp-muted"> — ${esc(section.title)}</span>
-        </div>
-        ${ratingLine(item, section, r)}
-        ${r.comment ? `<p class="rp-body">${nl2br(esc(r.comment))}</p>` : ''}
-        ${mediaGrid(bySlot[slotKey('item', item.id)], urlFor)}
-      </div>`).join('')}
+    ${heading('h2', 'rp-h2', 'Inspection Report', nav, 2)}
+    <p class="rp-body">Throughout the following report the terms "right" and "left" are used to describe the home as viewed from the street.</p>
+
+    <div class="rp-mh">Orientation</div>
+    <p class="rp-body">For purposes of identification and reporting, the front of this building faces the street providing access.</p>
+
+    ${age !== null ? `
+    <div class="rp-mh">Age</div>
+    <p class="rp-body">The house was estimated to be approximately ${age} year${age === 1 ? '' : 's'} old.</p>` : ''}
+
+    ${hasWeather ? `
+    <div class="rp-mh">Weather</div>
+    ${inspection.tempF ? `<p class="rp-body">Temperature: Approximately ${esc(inspection.tempF)} degrees.</p>` : ''}
+    ${inspection.weather ? `<p class="rp-body">The weather was ${esc(String(inspection.weather).toLowerCase())} at the time of our inspection.</p>` : ''}` : ''}
+
+    <div class="rp-mh">General Comments</div>
+    <p class="rp-body">Photographs are included in this report to illustrate specific deficiencies identified during the inspection. These photos should be considered representative examples and are not intended to depict every instance of a particular issue. Some conditions may exist in other locations, not specifically pictured.</p>
   </section>`;
 }
 
 function sectionsBlock(inspection, bySlot, urlFor, nav) {
   return `
   <section class="rp-block">
-    ${heading('h2', 'rp-h2', 'Full Inspection Detail', nav, 2)}
     ${inspection.template.sections.map((section) => sectionHtml(section, inspection.data, bySlot, urlFor, nav)).join('')}
   </section>`;
 }
@@ -223,9 +317,9 @@ function ageSentence(value) {
 // item (Acceptable/Marginal/Defective/...) always renders as an "appeared to
 // be... at the time of the inspection" sentence instead, and Marginal/
 // Defective additionally get a same-sentence referral to a licensed trade so
-// the recommendation can't get separated from the finding. Used in all three
-// report blocks that can show a condition item (Executive Summary, Findings,
-// Full Inspection Detail) — never just the bare rating.
+// the recommendation can't get separated from the finding. Used in both
+// report blocks that can show a condition item (Executive Summary and Full
+// Inspection Detail) — never just the bare rating.
 const TRADE_BY_SECTION = {
   Roof: 'a licensed roofing contractor', Roofing: 'a licensed roofing contractor',
   Electrical: 'a licensed electrician',
@@ -249,7 +343,7 @@ function conditionSentence(section, value) {
   return `${base}.`;
 }
 
-/** Rating line shared by Executive Summary / Findings — hedged sentence for age & condition items, bare "Rating: X" for everything else (material picks, yes/no, counts). */
+/** Rating line shared by Executive Summary / Full Inspection Detail — hedged sentence for age & condition items, bare "Rating: X" for everything else (material picks, yes/no, counts). */
 function ratingLine(item, section, r) {
   const hasValue = Array.isArray(r.value) ? r.value.length > 0 : !!r.value;
   if (!hasValue) return '';
@@ -281,7 +375,7 @@ function sectionHtml(section, data, bySlot, urlFor, nav) {
   }).filter(Boolean).join('');
   if (!rows) return '';
   return `<div class="rp-section">
-    ${heading('h3', 'rp-h3', section.title, nav, 3)}
+    ${heading('h3', 'rp-h3', section.title, nav, 2)}
     ${section.intro ? `<p class="rp-muted rp-section-intro">${esc(section.intro)}</p>` : ''}
     ${rows}
   </div>`;
@@ -296,56 +390,94 @@ function formsSummaryBlock(inspection, bySlot, urlFor, nav) {
     ${active.map(([formId, values]) => {
       const form = getForm(formId);
       if (!form) return '';
-      return `<div class="rp-section">
+      return `<div class="wf">
         <h3 class="rp-h3">${esc(form.title)} <span class="rp-muted">(${esc(form.code)})</span></h3>
-        ${form.sections.map((s) => formSectionHtml(s, values, formId, bySlot, urlFor)).join('')}
+        ${officialFormSectionsHtml(form, values, formId, bySlot, urlFor)}
       </div>`;
     }).join('')}
   </section>`;
 }
 
-function formSectionHtml(section, values, formId, bySlot, urlFor, nav) {
+// Renders a form (4-Point / Wind Mitigation) laid out like the actual
+// insurer/state form it represents — boxed, gray-headed sections; real
+// checkbox marks next to the exact option wording; the same side-by-side
+// grid tables the paper form uses — rather than a generic label/value dump.
+// Driven entirely by each form's existing section/field definitions
+// (js/forms/fourpoint.js, windmit.js), which were already rebuilt
+// field-for-field from real blank copies of both forms, so no per-form
+// bespoke markup is needed here: one renderer covers both.
+function officialFormSectionsHtml(form, values, formId, bySlot, urlFor, nav) {
+  return form.sections.map((s) => wfSectionHtml(s, values, formId, bySlot, urlFor, nav)).join('');
+}
+
+function wfSectionHtml(section, values, formId, bySlot, urlFor, nav) {
   const fields = section.fields.filter((f) => fieldVisible(f, values));
   if (!fields.length) return '';
-  return `<div class="rp-formsection">
-    ${heading('h4', 'rp-h4', section.title, nav, 3)}
-    ${section.prompt ? `<p class="rp-muted rp-section-intro">${esc(section.prompt)}</p>` : ''}
-    <table class="rp-formtable">
-      ${fields.map((f) => formFieldRow(f, values, formId, bySlot, urlFor)).join('')}
-    </table>
+  return `<div class="wf-section">
+    ${heading('h4', 'wf-section-title', section.title, nav, 3)}
+    ${section.prompt ? `<p class="wf-prompt">${esc(section.prompt)}</p>` : ''}
+    <div class="wf-fields">
+      ${fields.map((f) => wfFieldHtml(f, values, formId, bySlot, urlFor)).join('')}
+    </div>
   </div>`;
 }
 
-function formFieldRow(field, values, formId, bySlot, urlFor) {
+function wfFieldHtml(field, values, formId, bySlot, urlFor) {
   const v = values[field.id];
+  const widthCls = ` wf-w-${field.width || 'full'}`;
   switch (field.type) {
     case 'photos': {
       const items = bySlot[slotKey(formId, field.id)];
       if (!items?.length) return '';
-      return `<tr><th>${esc(field.label)}</th><td>${mediaGrid(items, urlFor)}</td></tr>`;
+      return `<div class="wf-field wf-w-full"><div class="wf-label">${esc(field.label)}</div>${mediaGrid(items, urlFor)}</div>`;
     }
     case 'signature':
-      return v ? `<tr><th>${esc(field.label)}</th><td><img class="rp-sig" src="${v}" alt="signature"></td></tr>` : '';
+      return `<div class="wf-field${widthCls}"><div class="wf-label">${esc(field.label)}</div>
+        ${v ? `<img class="rp-sig" src="${v}" alt="signature">` : '<div class="wf-blank-sig"></div>'}</div>`;
+    case 'radio':
+      return `<div class="wf-field wf-w-full"><div class="wf-label">${esc(field.label)}</div><div class="wf-options">
+        ${field.options.map((o) => wfOption(o.key === v, o.label, o.sub)).join('')}
+      </div></div>`;
     case 'checkgroup':
-      return v?.length ? `<tr><th>${esc(field.label)}</th><td>${esc(v.join(', '))}</td></tr>` : '';
-    case 'table': {
-      if (!v) return '';
-      const rows = field.rows.filter((r) => v[r] && Object.values(v[r]).some((c) => c !== '' && c != null && c !== false));
-      if (!rows.length) return '';
-      return `<tr><th>${esc(field.label)}</th><td>
-        <table class="rp-subtable"><tr>${field.columns.map((c) => `<th>${esc(c.label)}</th>`).join('')}</tr>
-        ${rows.map((r) => `<tr>${field.columns.map((c) => `<td>${c.type === 'static' ? esc(r) : esc(fmtCell(v[r][c.id]))}</td>`).join('')}</tr>`).join('')}
-        </table></td></tr>`;
-    }
+      return `<div class="wf-field wf-w-full"><div class="wf-label">${esc(field.label)}</div><div class="wf-options wf-options-grid">
+        ${field.options.map((o) => wfOption(Array.isArray(v) && v.includes(typeof o === 'string' ? o : o.key), typeof o === 'string' ? o : o.label)).join('')}
+      </div></div>`;
+    case 'table':
+      return wfTable(field, v);
     case 'computed':
-      return `<tr><th>${esc(field.label)}</th><td>${esc((field.compute?.(values)) || '—')}</td></tr>`;
-    default:
+      return `<div class="wf-field${widthCls}"><div class="wf-label">${esc(field.label)}</div><div class="wf-value">${esc(field.compute?.(values) || '—')}</div></div>`;
+    case 'textarea':
       if (v === undefined || v === '' || v === null) return '';
-      return `<tr><th>${esc(field.label)}</th><td>${field.type === 'textarea' ? nl2br(esc(v)) : esc(v)}</td></tr>`;
+      return `<div class="wf-field wf-w-full"><div class="wf-label">${esc(field.label)}</div><p class="wf-value wf-multiline">${nl2br(esc(v))}</p></div>`;
+    default: // text, number, date
+      return `<div class="wf-field${widthCls}"><div class="wf-label">${esc(field.label)}</div>
+        <div class="wf-value${v !== undefined && v !== '' && v !== null ? '' : ' wf-blank'}">${v !== undefined && v !== '' && v !== null ? esc(String(v)) : ''}</div></div>`;
   }
 }
 
-function fmtCell(v) { return v === true ? 'Yes' : v === false ? '' : v; }
+function wfOption(checked, label, sub) {
+  return `<div class="wf-opt"><span class="wf-cb${checked ? ' on' : ''}"></span><span class="wf-opt-label">${esc(label)}${sub ? `<span class="wf-opt-sub">${esc(sub)}</span>` : ''}</span></div>`;
+}
+
+// Row labels always render as their own leading column, regardless of
+// whether the field declares a 'static' column for it — a table with no
+// visible row labels isn't useful, so this doesn't rely on that being set.
+function wfTable(field, v) {
+  v = v || {};
+  const dataCols = field.columns.filter((c) => c.type !== 'static');
+  return `<div class="wf-field wf-w-full">
+    <div class="wf-label">${esc(field.label)}</div>
+    <table class="wf-table">
+      <tr><th></th>${dataCols.map((c) => `<th>${esc(c.label)}</th>`).join('')}</tr>
+      ${field.rows.map((r) => `<tr><td class="wf-table-row-label">${esc(r)}</td>${dataCols.map((c) => wfTableCell(c, v[r]?.[c.id])).join('')}</tr>`).join('')}
+    </table>
+  </div>`;
+}
+
+function wfTableCell(col, val) {
+  if (col.type === 'check') return `<td class="wf-table-check"><span class="wf-cb${val ? ' on' : ''}"></span></td>`;
+  return `<td>${val !== undefined && val !== '' && val !== null ? esc(String(val)) : ''}</td>`;
+}
 
 function mediaGrid(items, urlFor) {
   if (!items?.length) return '';
@@ -365,6 +497,90 @@ function videoOrImageTag(m, urlFor) {
       <div class="rp-video-note">Video too large to embed here — open in the app to view.</div>`;
   }
   return `<video src="${src}" controls playsinline poster="${urlFor(m, 'thumb')}"></video>`;
+}
+
+// Closing narrative — reuses the same "Overall condition, highlights, closing
+// notes" text an inspector already types into the job's Summary field, just
+// repositioned to match where the sample report places it (its last real
+// content section, right before the emergency-controls/environmental tail).
+function conclusionBlock(inspection, nav) {
+  return `
+  <section class="rp-block">
+    ${heading('h2', 'rp-h2', 'Conclusion', nav, 2)}
+    <div class="rp-mh">Comments</div>
+    <p class="rp-body">${nl2br(esc(inspection.summaryNote || 'No significant concerns were identified beyond those detailed throughout this report.'))}</p>
+  </section>`;
+}
+
+// tag -> { item, section, r } for every answered, non-hidden item on the
+// checklist that carries a stable `tag` (see report/template.js) — same
+// lookup pattern forms/crosspopulate.js uses for the 4-Point/Wind Mit
+// "Copy from Inspection" button.
+function byTag(inspection) {
+  const map = new Map();
+  for (const section of inspection.template.sections) {
+    for (const item of section.items) {
+      if (!item.tag) continue;
+      const r = inspection.data[item.id];
+      if (r && !r.hidden) map.set(item.tag, { item, section, r });
+    }
+  }
+  return map;
+}
+
+function ecRow(title, category, sentence, mediaItems, urlFor) {
+  return `
+  <div class="rp-ecrow">
+    <div class="rp-mh">${esc(title)}</div>
+    <div class="rp-ec-cat">${esc(category)}</div>
+    <p class="rp-body">${esc(sentence)}</p>
+    ${mediaItems?.length ? mediaGrid(mediaItems, urlFor) : ''}
+  </div>`;
+}
+
+// The report's final page: repeats — never re-collects — whatever the
+// inspector already recorded elsewhere on the checklist (electric meter,
+// main panel, water shutoff) via each item's stable `tag`. There is
+// deliberately no separate data-entry UI for this section.
+function emergencyControlsBlock(inspection, bySlot, urlFor, nav) {
+  const tagged = byTag(inspection);
+  const meter = tagged.get('elec_meter_location');
+  const panel = tagged.get('elec_panel_location');
+  const water = tagged.get('water_shutoff_location');
+
+  const rows = [];
+  if (meter?.r.value) {
+    rows.push(ecRow('Electric Meter', 'Electrical System',
+      `The electric meter is located at: ${meter.r.value}.`,
+      bySlot[slotKey('item', meter.item.id)], urlFor));
+  }
+  if (panel?.r.value) {
+    rows.push(ecRow('Main Service', 'Electrical System',
+      `The main electrical service panel is located at: ${panel.r.value}.`,
+      bySlot[slotKey('item', panel.item.id)], urlFor));
+    rows.push(ecRow('Main Disconnect', 'Electrical System',
+      'The main disconnect is incorporated into the electrical service panel.', null, urlFor));
+  }
+  if (water?.r.value) {
+    rows.push(ecRow('Water Shutoff Location', 'Plumbing',
+      `The domestic water supply main shut-off is located at: ${water.r.value}.`,
+      bySlot[slotKey('item', water.item.id)], urlFor));
+  }
+
+  return `
+  <section class="rp-block">
+    ${heading('h2', 'rp-h2', 'Locations of Emergency Controls', nav, 2)}
+    <p class="rp-body">In an emergency, you may need to know where to shut off the gas, the water and/or the electrical system. We have listed below these controls and their location for your convenience. We urge that you familiarize yourself with their location and operation.</p>
+    ${rows.length ? rows.join('') : '<p class="rp-muted">Not recorded during this inspection.</p>'}
+  </section>`;
+}
+
+function environmentalConcernsBlock(nav) {
+  return `
+  <section class="rp-block">
+    ${heading('h2', 'rp-h2', 'Environmental Concerns', nav, 2)}
+    <p class="rp-body">Environmental issues include but are not limited to radon, fungi/mold, asbestos, lead paint, lead contamination, toxic waste, formaldehyde, electromagnetic radiation, buried fuel oil tanks, ground water contamination and soil contamination. We are not trained or licensed to recognize or discuss any of these materials. We may make reference to one or more of these materials in this report when we recognize one of the common forms of these substances. If further study or analysis seems prudent, the advice and services of the appropriate specialists are advised.</p>
+  </section>`;
 }
 
 function signatureBlock(inspection, settings, nav) {

@@ -46,6 +46,22 @@ async function loadScript(src) {
   loadedScripts.add(src);
 }
 
+// The Table of Contents (render.js: tocBlock) is written into the document
+// with blank page-number cells — there's no such thing as a "page" until
+// this container has actually been laid out at the PDF's page height. Once
+// it has, each cell's target heading has a real position we can turn into a
+// 1-based page number by dividing its offset by the page height, same math
+// the capture loop below uses to decide where to slice.
+function fillTocPageNumbers(container, pageH) {
+  const containerTop = container.getBoundingClientRect().top;
+  container.querySelectorAll('[data-toc-for]').forEach((cell) => {
+    const target = container.querySelector(`#${CSS.escape(cell.dataset.tocFor)}`);
+    if (!target) return;
+    const relTop = target.getBoundingClientRect().top - containerTop;
+    cell.textContent = String(Math.floor(relTop / pageH) + 1);
+  });
+}
+
 function waitForImages(container) {
   const imgs = [...container.querySelectorAll('img')];
   return Promise.all(imgs.map((img) => (img.complete ? Promise.resolve() : new Promise((res) => {
@@ -74,6 +90,7 @@ export async function buildReportPdfBlob(hydrated, formId) {
 
   try {
     await waitForImages(container);
+    fillTocPageNumbers(container, pageH);
     const totalHeight = container.scrollHeight;
     let y = 0;
     let first = true;

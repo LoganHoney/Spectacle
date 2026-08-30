@@ -42,6 +42,30 @@
 .rp-jump-grid a:active{text-decoration:underline}
 .rp-jump-grid a.rp-jump-sub{padding-left:14px;color:#475569;font-size:12.5px}
 
+/* ---------------- table of contents ---------------- */
+.rp-toc-section{page-break-before:always;break-before:page}
+.rp-toc-row{display:flex;align-items:baseline;gap:4px;padding:4px 0}
+.rp-toc-label{font-size:14px;color:inherit;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rp-toc-dots{flex:1 1 auto;border-bottom:1px dotted var(--rp-muted);margin:0 4px 3px;min-width:10px}
+.rp-toc-num{font-size:13px;color:var(--rp-muted);font-variant-numeric:tabular-nums;min-width:1.6em;text-align:right;flex:0 0 auto}
+
+.rp-intro-page{page-break-before:always;break-before:page}
+
+/* ---------------- letter ---------------- */
+.rp-letter{page-break-before:always;break-before:page}
+.rp-letter-addr{font-weight:600}
+.rp-letter-sign{margin:2px 0}
+
+/* All-caps mini section labels ("ORIENTATION", "ELECTRIC METER"), matching
+   the sample report's Inspection Report / Locations of Emergency Controls
+   pages this was matched against. */
+.rp-mh{font-family:Arial, Helvetica, sans-serif;font-weight:800;font-size:12px;
+  text-transform:uppercase;letter-spacing:.04em;color:var(--rp-ink);margin:12px 0 2px}
+.rp-mh:first-of-type{margin-top:6px}
+.rp-ec-cat{font-family:Arial, Helvetica, sans-serif;font-size:11px;color:var(--rp-muted);
+  text-transform:uppercase;letter-spacing:.03em;margin-bottom:2px}
+.rp-ecrow{page-break-inside:avoid;margin-bottom:14px}
+
 .rp-block{margin:26px 0;page-break-inside:avoid}
 .rp-h2{font-size:19px;border-bottom:2px solid var(--rp-ink);padding-bottom:6px;margin:0 0 12px;font-family:Arial, Helvetica, sans-serif;scroll-margin-top:calc(var(--sat, 0px) + 76px)}
 .rp-h3{font-size:15.5px;margin:18px 0 6px;font-family:Arial, Helvetica, sans-serif;scroll-margin-top:calc(var(--sat, 0px) + 76px)}
@@ -73,12 +97,43 @@
 .rp-media figcaption{font-size:11px;color:var(--rp-muted);margin-top:3px;font-family:Arial, Helvetica, sans-serif}
 .rp-video-note{font-size:10.5px;color:var(--rp-muted);font-style:italic;margin-top:2px;font-family:Arial, Helvetica, sans-serif}
 
-.rp-formsection{margin-bottom:10px}
-.rp-formtable{width:100%;border-collapse:collapse;font-family:Arial, Helvetica, sans-serif;font-size:13px}
-.rp-formtable th{text-align:left;color:var(--rp-muted);font-weight:600;padding:6px 10px 6px 0;width:200px;vertical-align:top}
-.rp-formtable td{padding:6px 0;border-top:1px solid var(--rp-line);vertical-align:top}
-.rp-subtable{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
-.rp-subtable th,.rp-subtable td{border:1px solid var(--rp-line);padding:4px 6px;text-align:left}
+/* ---------------- official form layout (4-Point / Wind Mitigation) ----------------
+   Mirrors the actual insurer/state form: boxed gray-headed sections, real
+   checkbox marks next to option wording, side-by-side field grids and the
+   same matrix-style tables the paper form uses. */
+.wf-code{font-family:Arial, Helvetica, sans-serif;font-size:11px;color:var(--rp-muted);
+  text-transform:uppercase;letter-spacing:.03em;margin:-6px 0 10px}
+.wf-section{border:1px solid var(--rp-line);border-radius:6px;margin:0 0 14px;overflow:hidden;page-break-inside:avoid}
+.wf-section-title{background:#eef1f6;margin:0;padding:7px 12px;font-size:13.5px;
+  font-family:Arial, Helvetica, sans-serif;border-bottom:1px solid var(--rp-line)}
+.wf-prompt{margin:8px 12px 0;font-size:12px;color:var(--rp-muted);font-style:italic}
+.wf-fields{display:flex;flex-wrap:wrap;padding:10px 12px 12px;gap:0 18px}
+.wf-field{padding:4px 0}
+.wf-w-full{flex:1 1 100%}
+.wf-w-half{flex:1 1 calc(50% - 18px)}
+.wf-w-third{flex:1 1 calc(33.33% - 18px)}
+.wf-label{font-weight:700;font-size:12px;color:var(--rp-ink);font-family:Arial, Helvetica, sans-serif}
+.wf-value{font-size:13px;min-height:1.3em;border-bottom:1px solid var(--rp-line);padding-bottom:1px}
+.wf-value.wf-blank{min-height:1.3em}
+.wf-multiline{border-bottom:none;white-space:pre-wrap}
+.wf-options{display:flex;flex-direction:column;gap:4px;margin-top:3px}
+.wf-options-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:3px 14px}
+.wf-opt{display:flex;align-items:flex-start;font-size:12.5px;gap:0}
+.wf-opt-label{flex:1}
+.wf-opt-sub{display:block;font-size:11px;color:var(--rp-muted);margin-top:1px}
+.wf-blank-sig{height:40px;border-bottom:1px solid var(--rp-line)}
+
+.wf-cb{display:inline-block;flex:0 0 auto;width:11px;height:11px;margin:1.5px 6px 0 0;
+  border:1.3px solid var(--rp-ink);border-radius:2px;position:relative}
+.wf-cb.on::after{content:"\2715";position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);
+  font-size:10px;font-weight:800;line-height:1}
+
+.wf-table{width:100%;border-collapse:collapse;font-size:11.5px;margin-top:6px}
+.wf-table th,.wf-table td{border:1px solid var(--rp-line);padding:3px 6px;text-align:center;vertical-align:middle}
+.wf-table th{background:#f4f6fa;font-weight:700;font-family:Arial, Helvetica, sans-serif}
+.wf-table-row-label{text-align:left;font-weight:600}
+.wf-table-check{width:34px}
+.wf-table-check .wf-cb{margin:0 auto}
 
 .rp-sig{max-height:80px;max-width:280px;display:block;margin:8px 0 4px;border-bottom:1px solid var(--rp-line);padding-bottom:6px}
 .rp-signoff{page-break-inside:avoid}

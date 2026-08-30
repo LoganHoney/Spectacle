@@ -38,6 +38,7 @@ export function formatServices(services) {
 const SETTINGS_DEFAULTS = {
   companyName: 'Hernando Inspections',
   inspectorName: '',
+  inspectorTitle: 'Owner',
   license: '',
   licenseType: 'Florida Home Inspector (HI)',
   phone: '',

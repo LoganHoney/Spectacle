@@ -3,6 +3,7 @@ import * as media from '../core/media.js';
 import { renderFullReport, renderFormReport } from '../report/render.js';
 import { buildFullReportHtml, buildFormReportHtml } from '../report/export.js';
 import { buildReportPdfBlob } from '../report/pdf.js';
+import { buildWindMitOfficialPdf } from '../report/windmitPdfFill.js';
 import { getForm } from '../forms/engine.js';
 import { getEmailTemplate } from '../report/emailTemplates.js';
 import { buildMergeContext, mergeText } from '../core/merge.js';
@@ -87,6 +88,7 @@ export async function reportView(view, { id, form: formId }) {
       <button class="btn" data-export>Export Digital Copy</button>
       ${raw(navigator.share ? '<button class="btn ghost" data-share>Share</button>' : '')}
       ${raw(reportClient.isConfigured(hydrated.settings) ? '<button class="btn ghost" data-email-report>Email Client — Send PDF + Link</button>' : '')}
+      ${raw(formId === 'windmit' ? '<button class="btn ghost" data-windmit-official>Download Official State Form (PDF)</button>' : '')}
     </div>
     <div id="report-root" class="rp-root"><div class="empty small">Building report…</div></div>
   `;
@@ -146,6 +148,18 @@ export async function reportView(view, { id, form: formId }) {
       }
     };
   }
+
+  view.querySelector('[data-windmit-official]')?.addEventListener('click', async () => {
+    toast('Building official form…', 15000);
+    try {
+      const blob = await buildWindMitOfficialPdf(inspection.forms.windmit || {});
+      downloadBlob(blob, `${filename().replace(/\.html$/, '')}-OIR-B1-1802.pdf`);
+      toast('Official form saved');
+    } catch (err) {
+      console.error(err);
+      toast(`Could not build the official form: ${err.message}`);
+    }
+  });
 
   view.querySelector('[data-email-report]')?.addEventListener('click', async () => {
     toast('Building PDF and uploading…', 30000);

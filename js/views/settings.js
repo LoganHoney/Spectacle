@@ -84,6 +84,8 @@ export async function settingsView(view) {
         <label class="f"><span>License #</span><input type="text" data-k="license" value="${esc(settings.license)}" ${dis()}></label>
         <label class="f"><span>License type</span><input type="text" data-k="licenseType" value="${esc(settings.licenseType)}" ${dis()}></label>
       </div>
+      <label class="f"><span>Inspector title</span><input type="text" data-k="inspectorTitle" value="${esc(settings.inspectorTitle)}" placeholder="Owner" ${dis()}></label>
+      <div class="small muted" style="margin:-4px 0 4px">Used on the report's cover letter — "Owner, {Company Name}".</div>
       <div class="grid2">
         <label class="f"><span>Phone</span><input type="tel" data-k="phone" value="${esc(settings.phone)}" ${dis()}></label>
         <label class="f"><span>Email</span><input type="email" data-k="email" value="${esc(settings.email)}" ${dis()}></label>
