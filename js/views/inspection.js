@@ -12,6 +12,7 @@ import * as signing from '../core/signingClient.js';
 import { emailReportToClient } from './report.js';
 import * as reportClient from '../core/reportClient.js';
 import { COVER_PHOTO_SLOT } from '../report/render.js';
+import { roundTripMiles } from '../core/routing.js';
 import { mountPhotos } from './photos.js';
 
 function agreementStatus(inspection) {
@@ -158,10 +159,17 @@ export async function newInspectionFlow(view, params) {
     const btn = view.querySelector('[data-create]');
     if (btn) btn.disabled = true;
     try {
+      const settings = await store.getSettings();
       const inspection = await store.newInspection({
         clientId, propertyId, services: [...selectedServices],
-        scheduledAt, scheduledTime, inspectorName: (await store.getSettings()).inspectorName,
+        scheduledAt, scheduledTime, inspectorName: settings.inspectorName,
       });
+      if (settings.hqLat != null && settings.hqLon != null) {
+        const property = await store.getProperty(propertyId);
+        if (property?.lat != null && property?.lon != null) {
+          inspection.roundTripMiles = await roundTripMiles({ lat: settings.hqLat, lon: settings.hqLon }, { lat: property.lat, lon: property.lon });
+        }
+      }
       await store.saveInspection(inspection);
       toast('Inspection created');
       go(`/inspection/${inspection.id}`, { replace: true });
@@ -236,6 +244,8 @@ export async function inspectionWorkspace(view, { id }) {
         </div>
         <label class="f"><span>Fee ($)</span><input type="number" inputmode="decimal" data-cost value="${esc(inspection.fee || '')}" placeholder="e.g. 450"></label>
         <div class="small muted" style="margin-top:6px">Feeds the {TotalAmount} field in the Inspection Agreement.</div>
+        <label class="f" style="margin-top:10px"><span>Round-trip mileage</span><input type="number" step="0.1" inputmode="decimal" data-miles value="${esc(inspection.roundTripMiles ?? '')}" placeholder="Auto-calculated from Home Base"></label>
+        <div class="small muted" style="margin-top:-2px">Tracked in Admin for tax purposes — edit if the auto-calculated route isn't right.</div>
       </div>
 
       <div class="card">
@@ -337,6 +347,11 @@ export async function inspectionWorkspace(view, { id }) {
 
     view.querySelector('[data-cost]').addEventListener('input', (e) => {
       inspection.fee = e.target.value;
+      persist();
+    });
+
+    view.querySelector('[data-miles]').addEventListener('input', (e) => {
+      inspection.roundTripMiles = e.target.value === '' ? null : Number(e.target.value);
       persist();
     });
 

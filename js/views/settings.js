@@ -8,6 +8,7 @@ import { DEFAULT_AGREEMENT } from '../report/agreement.js';
 import { EMAIL_TEMPLATE_TYPES, getEmailTemplate } from '../report/emailTemplates.js';
 import { mountSignaturePad } from './signature.js';
 import { html, raw, esc, on, setTopbar, toast, chooseSheet, downloadBlob, debounce } from '../core/ui.js';
+import { searchAddress } from '../core/geocode.js';
 
 export async function settingsView(view) {
   const settings = await store.getSettings();
@@ -98,6 +99,21 @@ export async function settingsView(view) {
         : '<div class="small muted">No signature saved yet — tap Edit above.</div>'))}
     </div>
 
+    <h2>Home Base (Round-Trip Mileage)</h2>
+    <div class="card stack">
+      <div class="small muted" style="margin-top:-2px">Where each job's drive starts and ends — used to auto-calculate round-trip mileage on every inspection.</div>
+      <label class="f"><span>Street address</span><input type="text" data-k="hqAddress" value="${esc(settings.hqAddress)}" autocomplete="off" ${dis()}></label>
+      <div class="opts" data-hq-suggestions style="margin:-6px 0 10px"></div>
+      <div class="grid2">
+        <label class="f"><span>City</span><input type="text" data-k="hqCity" value="${esc(settings.hqCity)}" ${dis()}></label>
+        <label class="f"><span>Zip</span><input type="text" data-k="hqZip" value="${esc(settings.hqZip)}" ${dis()}></label>
+      </div>
+      <label class="f"><span>State</span><input type="text" data-k="hqState" value="${esc(settings.hqState)}" ${dis()}></label>
+      <div class="small muted">${settings.hqLat != null ? 'Located — mileage will calculate automatically.' : 'Pick a suggestion while typing the address above so mileage can be calculated — typing without picking one saves the address but not its coordinates.'}</div>
+      <label class="f"><span>IRS standard mileage rate ($/mile)</span><input type="number" step="0.01" data-k="mileageRate" value="${esc(settings.mileageRate ?? '')}" placeholder="e.g. 0.70" ${dis()}></label>
+      <div class="small muted" style="margin-top:-4px">This changes every tax year — look up the current rate at irs.gov rather than relying on last year's figure.</div>
+    </div>
+
     <h2>Report Defaults</h2>
     <div class="card stack">
       <label class="f"><span>Default fee ($)</span><input type="number" data-k="defaultFee" value="${esc(settings.defaultFee)}" ${dis()}></label>
@@ -145,6 +161,12 @@ export async function settingsView(view) {
       ${raw(editing ? '<button class="btn wide" data-restore>Restore from Backup</button>' : '<div class="small muted">Tap Edit above to restore from a backup file.</div>')}
     </div>
 
+    <h2>Admin</h2>
+    <div class="card stack">
+      <div class="small muted">Round-trip mileage, income, and expenses — for taxes.</div>
+      <a class="btn wide" href="#/admin">Open Admin</a>
+    </div>
+
     <h2>Comment Library</h2>
     <div class="card stack">
       <a class="btn wide" href="#/library">Manage Library & Master Template</a>
@@ -178,6 +200,48 @@ export async function settingsView(view) {
       persist({ [el.dataset.k]: patchVal });
     });
   });
+
+  const hqAddressEl = view.querySelector('[data-k="hqAddress"]');
+  const hqSuggestionsEl = view.querySelector('[data-hq-suggestions]');
+  if (hqAddressEl && hqSuggestionsEl) {
+    let hqCandidates = [];
+    const runHqSearch = debounce(async (query) => {
+      hqCandidates = await searchAddress(query);
+      hqSuggestionsEl.innerHTML = hqCandidates.map((c, i) =>
+        `<button type="button" data-hq-suggestion="${i}">${esc(c.address || c.label)}<div class="small muted">${esc([c.city, c.state, c.zip].filter(Boolean).join(', '))}</div></button>`).join('');
+    }, 500);
+    hqAddressEl.addEventListener('input', () => {
+      // Typing after a pick means the coordinates no longer match what's on
+      // screen — clear them so a stale lat/lon never gets attributed to a
+      // different address the inspector went on to type.
+      if (settings.hqLat != null) { settings.hqLat = null; settings.hqLon = null; store.saveSettings({ hqLat: null, hqLon: null }); }
+      hqSuggestionsEl.innerHTML = '';
+      if (hqAddressEl.value.trim().length >= 5) runHqSearch(hqAddressEl.value);
+    });
+    on(hqSuggestionsEl, 'click', '[data-hq-suggestion]', (_e, el) => {
+      const c = hqCandidates[Number(el.dataset.hqSuggestion)];
+      if (!c) return;
+      const setField = (key, val) => {
+        if (!val) return;
+        const input = view.querySelector(`[data-k="${key}"]`);
+        if (input) input.value = val;
+        settings[key] = val;
+        persist({ [key]: val });
+      };
+      hqAddressEl.value = c.address || hqAddressEl.value;
+      settings.hqAddress = hqAddressEl.value;
+      persist({ hqAddress: settings.hqAddress });
+      setField('hqCity', c.city);
+      setField('hqState', c.state);
+      setField('hqZip', c.zip);
+      settings.hqLat = c.lat;
+      settings.hqLon = c.lon;
+      store.saveSettings({ hqLat: c.lat, hqLon: c.lon });
+      hqSuggestionsEl.innerHTML = '';
+      toast('Home base located');
+      draw();
+    });
+  }
 
   view.querySelector('[data-reset-agreement]')?.addEventListener('click', async () => {
     settings.agreementTemplate = '';

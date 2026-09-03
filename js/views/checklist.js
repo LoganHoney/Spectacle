@@ -261,6 +261,50 @@ export function mountSectionItems(host, inspection, section, onDirty, onSectionC
       r.comment = el.value;
       save();
     });
+
+    // 'blur' doesn't bubble, so it can't be caught by this delegated
+    // listener on `host` — 'focusout' is the bubbling equivalent.
+    on(host, 'focusout', '[data-note]', async (_e, el) => {
+      await syncCommentToLibrary(el.dataset.note, findItem(el.dataset.note));
+    });
+  }
+
+  /**
+   * Keeps the comment library growing with whatever the inspector actually
+   * types, without ever touching a comment picked FROM the library — that
+   * text often has {Fill:...} placeholders already resolved to this job's
+   * specific value (e.g. "23 years"), and overwriting the reusable
+   * template's body with that would corrupt it for every future job. Only
+   * text that started from scratch (r.libraryCommentId unset) is eligible:
+   * first save creates a new library entry and remembers its id on this
+   * response; later edits to the same response update that same entry
+   * instead of creating duplicates. An emptied comment is left alone
+   * either way — never deletes or blanks an existing library entry.
+   */
+  async function syncCommentToLibrary(itemId, item) {
+    const r = inspection.data[itemId];
+    const text = (r?.comment || '').trim();
+    if (!text || !item) return;
+    if (r.libraryCommentId) {
+      const existing = await store.getComment(r.libraryCommentId);
+      if (existing && existing.body !== text) {
+        await store.saveComment({ ...existing, body: text });
+        commentLib = null; // stale — refetch next time the library sheet opens
+      }
+      return;
+    }
+    const created = store.newComment({
+      category: section.title,
+      ...(item.group ? { subgroup: item.group } : {}),
+      title: item.label,
+      body: text,
+      severity: r.severity ?? 2,
+    });
+    await store.saveComment(created);
+    r.libraryCommentId = created.id;
+    commentLib = null;
+    save();
+    toast('Saved to comment library');
   }
 
   function setValue(itemId, value) {

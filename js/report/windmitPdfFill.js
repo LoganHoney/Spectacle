@@ -77,6 +77,17 @@ const QUALIFICATION_LICENSE_TYPE = {
   other: 'Other',
 };
 
+// The footer's "Inspectors Initials" blank is meant to be initialed by hand
+// on every page of a paper form, but since this is typed, deriving it from
+// the inspector's name (rather than adding a whole separate form question
+// just for initials) keeps the UI from asking for the same fact twice.
+function initialsOf(name) {
+  const words = String(name || '').split(/\s+/).filter(Boolean);
+  if (!words.length) return '';
+  if (words.length === 1) return words[0][0].toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+}
+
 function setText(form, name, value) {
   if (value === undefined || value === null || value === '') return;
   try { form.getTextField(name).setText(String(value)); } catch { /* field not in this build — skip, not fatal */ }
@@ -195,6 +206,13 @@ export async function buildWindMitOfficialPdf(values = {}) {
 
   // ---- Homeowner attestation ----
   setText(form, 'owner_sign_date', values.owner_sign_date);
+
+  // ---- Running footer (repeats on every page) ----
+  const footerInitials = initialsOf(values.insp_name);
+  for (let p = 0; p < 6; p++) {
+    setText(form, `footer_initials_p${p}`, footerInitials);
+    setText(form, `footer_property_address_p${p}`, values.address);
+  }
 
   form.updateFieldAppearances();
 

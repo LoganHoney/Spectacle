@@ -55,6 +55,12 @@ const SETTINGS_DEFAULTS = {
   photoMaxEdge: 1600,
   photoQuality: 0.72,
   seededComments: false,
+  // Home base for round-trip mileage — the "from" side of every job's route.
+  hqAddress: '', hqCity: '', hqState: 'FL', hqZip: '', hqLat: null, hqLon: null,
+  // Cents-free dollars-per-mile the IRS allows as a deduction — changes every
+  // tax year, so this is never assumed/hardcoded; the admin section prompts
+  // for it and shows where to look it up rather than guessing a figure.
+  mileageRate: null,
 };
 
 export async function getSettings() {
@@ -101,6 +107,7 @@ export function newProperty(p = {}) {
     id: uid('p_'), clientId: '', address: '', city: '', state: 'FL', zip: '', county: 'Hernando',
     yearBuilt: '', sqft: '', stories: '1', structureType: 'Single Family',
     foundation: 'Slab on grade', occupancy: 'Owner occupied', utilitiesOn: 'Yes',
+    lat: null, lon: null,          // set when the address is picked from autocomplete — feeds round-trip mileage
     createdAt: Date.now(), ...p,
   };
 }
@@ -134,6 +141,7 @@ export async function newInspection(p = {}) {
     scheduledAt: '', scheduledTime: '',
     inspectedAt: '',
     fee: '', paid: false,
+    roundTripMiles: null,         // auto-computed (HQ <-> property, via routing.js) when both have coordinates; always editable
     weather: '', tempF: '', groundCond: '', attendees: '',
     jobContacts: [],              // [contactId, ...] — realtors/lenders/etc. picked from the saved Contacts list
     inspectorName: '',
@@ -213,12 +221,49 @@ export function newComment(p = {}) {
 }
 
 export const listComments = () => db.all('comments').then((r) => r.sort((a, b) => (b.uses || 0) - (a.uses || 0) || a.title.localeCompare(b.title)));
+export const getComment = (id) => db.get('comments', id);
 export const saveComment = (c) => db.put('comments', c);
 export const deleteComment = (id) => db.del('comments', id);
 
 export async function bumpCommentUse(id) {
   const c = await db.get('comments', id);
   if (c) await db.put('comments', { ...c, uses: (c.uses || 0) + 1 });
+}
+
+// ---------- transactions (admin: misc income & expenses) ----------
+// Job fees (inspection.fee/.paid) and mileage (inspection.roundTripMiles)
+// are the two big, already-existing per-job numbers — this store is only
+// for everything *else* money-related: business expenses, and income that
+// isn't a job fee (e.g. a referral bonus). The admin view combines both
+// sources rather than duplicating job fees in here.
+
+export const EXPENSE_CATEGORIES = [
+  'Vehicle / Fuel', 'Insurance (E&O/GL)', 'Licensing & CE', 'Tools & Equipment',
+  'Software & Subscriptions', 'Marketing', 'Office & Supplies', 'Phone & Internet', 'Other',
+];
+
+export function newTransaction(p = {}) {
+  return {
+    id: uid('tx_'), type: 'expense', date: today(), amount: '', category: 'Other',
+    description: '', inspectionId: '', createdAt: Date.now(), ...p,
+  };
+}
+
+export const listTransactions = () => db.all('transactions').then((r) => r.sort((a, b) => (b.date || '').localeCompare(a.date || '')));
+export const saveTransaction = (t) => db.put('transactions', t);
+
+export async function deleteTransaction(id) {
+  // Receipt photos are stored in the shared `media` store keyed by this id in
+  // its `inspectionId` field (a transaction isn't a job, but reusing that
+  // existing index avoids a schema change) — same cleanup-on-delete pattern
+  // as deleteInspection.
+  await db.delWhere('media', 'inspectionId', id);
+  return db.del('transactions', id);
+}
+
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // ---------- templates ----------

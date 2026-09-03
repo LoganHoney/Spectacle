@@ -17,6 +17,7 @@ import { reportView } from './views/report.js';
 import { libraryView } from './views/library.js';
 import { settingsView } from './views/settings.js';
 import { accountView } from './views/account.js';
+import { adminView } from './views/admin.js';
 
 const view = document.getElementById('view');
 
@@ -35,6 +36,7 @@ route('/library', () => libraryView(view));
 route('/contacts', () => contactsView(view));
 route('/settings', () => settingsView(view));
 route('/account', () => accountView(view));
+route('/admin', (p) => adminView(view, p));
 
 function updateTabbar() {
   const path = currentPath();

@@ -1,17 +1,18 @@
 // IndexedDB wrapper. Everything lives on-device; nothing leaves the phone.
 
 const DB_NAME = 'hernando-inspections';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export const STORES = {
-  clients:     { keyPath: 'id', indexes: [['name', 'name'], ['createdAt', 'createdAt']] },
-  properties:  { keyPath: 'id', indexes: [['clientId', 'clientId']] },
-  inspections: { keyPath: 'id', indexes: [['clientId', 'clientId'], ['status', 'status'], ['scheduledAt', 'scheduledAt'], ['updatedAt', 'updatedAt']] },
-  media:       { keyPath: 'id', indexes: [['inspectionId', 'inspectionId'], ['slot', 'slot']] },
-  templates:   { keyPath: 'id', indexes: [['name', 'name']] },
-  comments:    { keyPath: 'id', indexes: [['category', 'category']] },
-  contacts:    { keyPath: 'id', indexes: [['name', 'name'], ['role', 'role']] },
-  settings:    { keyPath: 'key' },
+  clients:      { keyPath: 'id', indexes: [['name', 'name'], ['createdAt', 'createdAt']] },
+  properties:   { keyPath: 'id', indexes: [['clientId', 'clientId']] },
+  inspections:  { keyPath: 'id', indexes: [['clientId', 'clientId'], ['status', 'status'], ['scheduledAt', 'scheduledAt'], ['updatedAt', 'updatedAt']] },
+  media:        { keyPath: 'id', indexes: [['inspectionId', 'inspectionId'], ['slot', 'slot']] },
+  templates:    { keyPath: 'id', indexes: [['name', 'name']] },
+  comments:     { keyPath: 'id', indexes: [['category', 'category']] },
+  contacts:     { keyPath: 'id', indexes: [['name', 'name'], ['role', 'role']] },
+  settings:     { keyPath: 'key' },
+  transactions: { keyPath: 'id', indexes: [['date', 'date'], ['type', 'type'], ['inspectionId', 'inspectionId']] },
 };
 
 let _db = null;

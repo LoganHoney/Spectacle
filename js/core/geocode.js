@@ -45,5 +45,10 @@ function toCandidate(row) {
     state: a.state || '',
     zip: a.postcode || '',
     county: (a.county || '').replace(/ County$/i, ''),
+    // Nominatim returns these as strings — cast now so every caller gets a
+    // real number (or null) instead of re-parsing at each use site. Feeds
+    // routing.js's round-trip mileage calculation.
+    lat: row.lat != null ? Number(row.lat) : null,
+    lon: row.lon != null ? Number(row.lon) : null,
   };
 }

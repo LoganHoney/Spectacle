@@ -174,12 +174,17 @@ function editPropertySheet(p) {
     const addressEl = body.querySelector('[data-k="address"]');
     const suggestionsEl = body.querySelector('[data-address-suggestions]');
     let candidates = [];
+    // Coordinates from the picked suggestion — feeds round-trip mileage.
+    // Cleared on further typing so a coordinate never gets saved against an
+    // address the inspector went on to edit after picking.
+    let pickedCoords = (p.lat != null && p.lon != null) ? { lat: p.lat, lon: p.lon } : null;
     const runSearch = debounce(async (query) => {
       candidates = await searchAddress(query);
       suggestionsEl.innerHTML = candidates.map((c, i) =>
         `<button type="button" data-suggestion="${i}">${esc(c.address || c.label)}<div class="small muted">${esc([c.city, c.state, c.zip].filter(Boolean).join(', '))}</div></button>`).join('');
     }, 500);
     addressEl.addEventListener('input', () => {
+      pickedCoords = null;
       suggestionsEl.innerHTML = '';
       if (addressEl.value.trim().length >= 5) runSearch(addressEl.value);
     });
@@ -192,6 +197,7 @@ function editPropertySheet(p) {
       setIf('state', c.state);
       setIf('zip', c.zip);
       setIf('county', c.county);
+      pickedCoords = (c.lat != null && c.lon != null) ? { lat: c.lat, lon: c.lon } : null;
       suggestionsEl.innerHTML = '';
     });
 
@@ -199,6 +205,8 @@ function editPropertySheet(p) {
       const out = { ...p };
       body.querySelectorAll('[data-k]').forEach((el) => { out[el.dataset.k] = el.value.trim(); });
       if (!out.address) { toast('Street address is required'); return; }
+      out.lat = pickedCoords?.lat ?? null;
+      out.lon = pickedCoords?.lon ?? null;
       close(out);
     };
   }, { dismissible: false });

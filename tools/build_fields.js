@@ -225,6 +225,19 @@ window.buildWindMitFields = async function (pdfBytes) {
     { value: 'other', page: 4, x: 36, y: 268.1 },
   ]);
 
+  // ---- Running footer: "Inspectors Initials ___ Property Address ___" ----
+  // This line repeats identically on every page (pdf.js text-layer extraction
+  // confirmed the exact same merged run — same x=36, y=69.7, width=532.8 — on
+  // all 6 pages). It's one text object with no per-character position data,
+  // so the split between the two blanks was derived from Times-Roman and
+  // Helvetica standard AFM widths calibrated against that measured total
+  // width; both fonts agreed on the split points within ~2pt, so the exact
+  // font wasn't needed to place these confidently.
+  for (let p = 0; p < 6; p++) {
+    addText(form, doc, `footer_initials_p${p}`, p, 112, 69.7, 58);
+    addText(form, doc, `footer_property_address_p${p}`, p, 242, 69.7, 325);
+  }
+
   // ---- Certification / signatures (page 5) ----
   addText(form, doc, 'insp_print_name', 5, 84, 641.5, 220);
   addText(form, doc, 'insp_employee_name', 5, 240, 630, 220);
