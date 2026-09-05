@@ -4,13 +4,21 @@ import { renderFullReport, renderFormReport } from '../report/render.js';
 import { buildFullReportHtml, buildFormReportHtml } from '../report/export.js';
 import { buildReportPdfBlob } from '../report/pdf.js';
 import { buildWindMitOfficialPdf } from '../report/windmitPdfFill.js';
+import { buildFourPointOfficialPdf } from '../report/fourPointPdfFill.js';
+import { buildRoofCertOfficialPdf } from '../report/roofCertPdfFill.js';
 import { getForm, FORM_MENU } from '../forms/engine.js';
-import { gatherCandidates, applyCandidates } from '../forms/crosspopulate.js';
+import { gatherCandidates, applyCandidates, CROSSPOPULATE_FORMS } from '../forms/crosspopulate.js';
 import { getEmailTemplate } from '../report/emailTemplates.js';
 import { buildMergeContext, mergeText } from '../core/merge.js';
 import * as reportClient from '../core/reportClient.js';
 import { html, raw, esc, setTopbar, toast, downloadBlob, slug, copyRichLink } from '../core/ui.js';
 import { go } from '../core/router.js';
+
+// Forms with a real official fillable PDF (the genuine underwriter-recognized
+// form, not a look-alike HTML render) — everything else falls back to
+// buildReportPdfBlob's generic printout.
+const OFFICIAL_PDF_BUILDERS = { windmit: buildWindMitOfficialPdf, fourpoint: buildFourPointOfficialPdf, roofcert: buildRoofCertOfficialPdf };
+const OFFICIAL_PDF_SUFFIX = { windmit: 'OIR-B1-1802', fourpoint: 'Insp4pt', roofcert: 'RCF-1' };
 
 /**
  * Builds a real PDF, hosts it on the signing backend for a shareable link,
@@ -34,7 +42,7 @@ export async function emailReportToClient(hydrated, formId) {
   const base = slug([property ? store.propertyLabel(property).split(',')[0] : client?.name, formId].filter(Boolean).join(' ')) || 'inspection-report';
 
   let pdfBlob;
-  if (formId === 'fourpoint' || formId === 'windmit') {
+  if (CROSSPOPULATE_FORMS.has(formId)) {
     inspection.forms[formId] = inspection.forms[formId] || {};
     const values = inspection.forms[formId];
     const candidates = gatherCandidates(inspection, formId, values).filter((c) => c.checkedByDefault);
@@ -42,13 +50,13 @@ export async function emailReportToClient(hydrated, formId) {
       applyCandidates(values, candidates);
       await store.saveInspection(inspection);
     }
-    pdfBlob = formId === 'windmit' ? await buildWindMitOfficialPdf(values) : await buildReportPdfBlob(hydrated, formId);
+    pdfBlob = OFFICIAL_PDF_BUILDERS[formId] ? await OFFICIAL_PDF_BUILDERS[formId](values) : await buildReportPdfBlob(hydrated, formId);
   } else {
     pdfBlob = await buildReportPdfBlob(hydrated, formId);
   }
   const { viewUrl } = await reportClient.uploadReport(hydrated.settings, pdfBlob, `${base}.pdf`);
 
-  const templateKey = formId === 'fourpoint' ? 'fourpoint' : formId === 'windmit' ? 'windmit' : 'full';
+  const templateKey = OFFICIAL_PDF_BUILDERS[formId] ? formId : 'full';
   const tpl = getEmailTemplate(hydrated.settings, templateKey);
   const fields = buildMergeContext(hydrated);
   const title = mergeText(tpl.subject, fields);
@@ -107,7 +115,7 @@ export async function reportView(view, { id, form: formId }) {
     </div>
     <div class="row wrap no-print" style="margin:0 0 18px;gap:8px">
       ${raw(reportClient.isConfigured(hydrated.settings) ? '<button class="btn primary" data-email-report>Send Report</button>' : '')}
-      ${raw(formId === 'windmit' ? '<button class="btn ghost" data-windmit-official>Download Official State Form (PDF)</button>' : '')}
+      ${raw(OFFICIAL_PDF_BUILDERS[formId] ? '<button class="btn ghost" data-official-form>Download Official State Form (PDF)</button>' : '')}
       <button class="btn ghost" data-print>Print / Save PDF</button>
       <button class="btn ghost" data-export>Export Digital Copy</button>
       ${raw(navigator.share ? '<button class="btn ghost" data-share>Share</button>' : '')}
@@ -155,7 +163,7 @@ export async function reportView(view, { id, form: formId }) {
       try {
         const htmlStr = form ? await buildFormReportHtml(hydrated, formId) : await buildFullReportHtml(hydrated);
         const file = new File([htmlStr], filename(), { type: 'text/html' });
-        const templateKey = formId === 'fourpoint' ? 'fourpoint' : formId === 'windmit' ? 'windmit' : 'full';
+        const templateKey = OFFICIAL_PDF_BUILDERS[formId] ? formId : 'full';
         const tpl = getEmailTemplate(hydrated.settings, templateKey);
         const fields = buildMergeContext(hydrated);
         const shareData = { files: [file], title: mergeText(tpl.subject, fields), text: mergeText(tpl.body, fields) };
@@ -171,18 +179,20 @@ export async function reportView(view, { id, form: formId }) {
     };
   }
 
-  view.querySelector('[data-windmit-official]')?.addEventListener('click', async () => {
+  view.querySelector('[data-official-form]')?.addEventListener('click', async () => {
+    const builder = OFFICIAL_PDF_BUILDERS[formId];
+    if (!builder) return;
     toast('Building official form…', 15000);
     try {
-      inspection.forms.windmit = inspection.forms.windmit || {};
-      const values = inspection.forms.windmit;
-      const candidates = gatherCandidates(inspection, 'windmit', values).filter((c) => c.checkedByDefault);
+      inspection.forms[formId] = inspection.forms[formId] || {};
+      const values = inspection.forms[formId];
+      const candidates = gatherCandidates(inspection, formId, values).filter((c) => c.checkedByDefault);
       if (candidates.length) {
         applyCandidates(values, candidates);
         await store.saveInspection(inspection);
       }
-      const blob = await buildWindMitOfficialPdf(values);
-      downloadBlob(blob, `${filename().replace(/\.html$/, '')}-OIR-B1-1802.pdf`);
+      const blob = await builder(values);
+      downloadBlob(blob, `${filename().replace(/\.html$/, '')}-${OFFICIAL_PDF_SUFFIX[formId]}.pdf`);
       toast('Official form saved');
     } catch (err) {
       console.error(err);

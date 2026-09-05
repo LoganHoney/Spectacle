@@ -44,10 +44,18 @@ const MAPPINGS = [
     } },
   { tag: 'roof_geometry', formId: 'windmit', field: 'q7_answer', label: '7. Roof Geometry', kind: 'mapValue',
     valueMap: { Hip: 'A', Flat: 'B' }, fallback: 'C' },
+
+  // ---- Roof Certification ---- (field ids intentionally match fourpoint.js's
+  // roof_* ids, so these are the same checklist tags, just a second target form)
+  { tag: 'roof_covering', formId: 'roofcert', field: 'roof_p_covering', label: 'Predominant Roof — Covering material', kind: 'copy' },
+  { tag: 'roof_age', formId: 'roofcert', field: 'roof_p_age', label: 'Predominant Roof — Age (years)', kind: 'copy' },
+  { tag: 'roof_remaining_life', formId: 'roofcert', field: 'roof_p_remaining', label: 'Predominant Roof — Remaining useful life (years)', kind: 'copy' },
+  { tag: 'roof_condition', formId: 'roofcert', field: 'roof_p_condition', label: 'Predominant Roof — Overall condition', kind: 'conditionToSatisfactory' },
+  { tag: 'roof_leaks', formId: 'roofcert', field: 'roof_p_leaks', label: 'Predominant Roof — Visible signs of leaks?', kind: 'copy' },
 ];
 
 /** Which forms currently offer the "Copy from Inspection" button. */
-export const CROSSPOPULATE_FORMS = new Set(['fourpoint', 'windmit']);
+export const CROSSPOPULATE_FORMS = new Set(['fourpoint', 'windmit', 'roofcert']);
 
 /** tag -> Set of form ids it feeds, for the checklist's "also on 4pt/wind mit" badges. */
 export const TAGGED_FOR_FORMS = MAPPINGS.reduce((map, m) => {

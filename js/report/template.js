@@ -74,7 +74,7 @@ function build() {
       ['Roof covering material', 'select', ['Asphalt / Fiberglass Shingle', 'Architectural Shingle', 'Concrete / Clay Tile', 'Metal', 'Built Up / Modified Bitumen', 'Membrane / Single Ply', 'Other'], '', 'roof_covering', 'Roof Covering'],
       ['Approximate age of covering (years)', 'number', null, '', 'roof_age', 'Roof Covering'],
       ['Roof covering condition', 'condition', null, '', 'roof_condition', 'Roof Covering'],
-      ['Estimated remaining useful life (years)', 'number', null, '', 'roof_remaining_life'],
+      ['Estimated remaining useful life (years)', 'text', null, 'e.g. 5+ years', 'roof_remaining_life'],
       ['Roof geometry', 'select', ['Hip', 'Gable', 'Hip & gable combination', 'Flat', 'Shed', 'Complex / multiple'], '', 'roof_geometry'],
       ['Flashing & penetrations', 'condition', null, '', null, 'Flashing & Drainage'],
       ['Plumbing / exhaust vent boots', 'condition', null, '', null, 'Flashing & Drainage'],
@@ -275,7 +275,7 @@ function build() {
 // stored built-in template's version and refreshes it when this is newer.
 // New inspections clone from the (refreshed) master; jobs already in progress
 // keep their own snapshot from cloneTemplate() and are never touched.
-export const TEMPLATE_VERSION = 5;
+export const TEMPLATE_VERSION = 6;
 
 export async function defaultTemplate() {
   return { id: uid('tpl_'), name: 'Standard Home Inspection', version: TEMPLATE_VERSION, sections: build() };

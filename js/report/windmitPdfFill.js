@@ -1,33 +1,35 @@
 // Fills the REAL official OIR-B1-1802 (Rev. 04/26) Wind Mitigation form —
-// js/vendor/forms/oir-b1-1802-fillable.pdf — with the inspector's actual
-// answers from inspection.forms.windmit, producing a PDF that is the genuine
-// state form, not a look-alike reproduction.
+// js/vendor/forms/oir-b1-1802-fillable-v2.pdf — with the inspector's actual
+// answers from inspection.forms.windmit.
 //
-// js/vendor/forms/oir-b1-1802-fillable.pdf was built once, offline, by
-// tools/build_fields.js + tools/cdp_build_wind_mit_pdf.py: those scripts
-// took the flat official master (floir.gov) and added real AcroForm fields
-// at coordinates measured directly from the PDF's own text layer (pdf.js
-// getTextContent(), not guessed) — see js/report/render.js's introBlock
-// comment for the parallel "verbatim, not paraphrased" precedent this
-// follows. The field NAMES below must match that build exactly; if the
+// This master started as a real Acrobat-prepared fillable version the user
+// supplied (replacing an earlier hand-measured build) — its 226 field
+// names/positions came from Acrobat's own field detection, verified via
+// tools/cdp_inspect_pdf_fields.py, then lightly patched by
+// tools/build_windmit_fields.js (two bogus fields removed — see that file's
+// header). The field NAMES below must match that build exactly; if the
 // vendored PDF is ever regenerated, keep both in sync.
 //
-// Known gap: the Q9 Opening Protection matrix (the 6-column x 9-row grid)
-// is not field-mapped — its cells are blank vector-drawn boxes with no text
-// glyph to anchor a field to, a harder extraction problem than the rest of
-// this form. Everything else questions 1-9 answer on is covered.
+// Every "radio-style" question here (Q1's A/B/C/D, Q2's HVHZ/Region 1-3,
+// etc.) turned out to be independent checkboxes on this master, not a true
+// PDFRadioGroup with one shared field name — confirmed via
+// tools/cdp_inspect_pdf_fields.py (zero multi-widget fields at all). So
+// setOneOf() below just checks the single matching option's own field,
+// rather than selecting from a group.
+//
+// Known gaps (fields on the real form with no corresponding data-model
+// question — filling in required expanding the checklist beyond what's
+// asked for, so left blank same as the printed form): the FORTIFIED Home
+// certificate type (Roof/Silver/Gold) checkboxes near the top of page 1;
+// Q6's descriptive sub-bullets under each lettered option (the option
+// itself is captured, not which specific sub-condition applied); Q9's
+// Plywood/OSB sub-choice under option C; the homeowner's printed name (the
+// real form only has Signature + Date for the homeowner, no name blank).
+// The big win this master enables that the old hand-measured one couldn't:
+// Q9's full 9-row x 6-column opening-protection matrix is a real fillable
+// grid here — every cell had no text glyph to anchor a field to on the flat
+// master, so it was entirely unmapped before.
 
-import { WINDMIT } from '../forms/windmit.js';
-
-// This module's fetches tend to land after a long chain of other requests
-// (the app's own module graph loading, IndexedDB work, etc.) — a dropped
-// connection this late has been observed directly, not just suspected,
-// including the request itself succeeding (HTTP 200) and the body read
-// afterward throwing — so the retry has to cover the whole fetch-and-read,
-// not just the initial connection. This matches exactly the kind of
-// transient failure a field inspector's phone hits on real cell service;
-// a couple of quick retries costs nothing when it isn't needed and saves
-// the whole PDF build when it is.
 async function fetchWithRetry(url, mode, attempts = 3) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
@@ -45,9 +47,7 @@ async function fetchWithRetry(url, mode, attempts = 3) {
 
 let vendorPromise = null;
 function loadVendor() {
-  if (!vendorPromise) {
-    vendorPromise = loadScript('js/vendor/pdf-lib.min.js');
-  }
+  if (!vendorPromise) vendorPromise = loadScript('js/vendor/pdf-lib.min.js');
   return vendorPromise;
 }
 
@@ -61,49 +61,26 @@ async function loadScript(src) {
   loadedScripts.add(src);
 }
 
-// windmit.js's q6_min_conditions / q8_methods checkgroup options, in the
-// exact order their PDF checkboxes were created — matched by array index,
-// not by string content (the option text is long/legal, the field names are
-// short and stable).
-const Q6_MIN_FIELDS = ['q6_min_1', 'q6_min_2', 'q6_min_3'];
-const Q8_METHOD_FIELDS = ['q8_method_fully_adhered', 'q8_method_tape', 'q8_method_double_layer', 'q8_method_spray_foam', 'q8_method_full_coverage'];
-
-const QUALIFICATION_LICENSE_TYPE = {
-  home_inspector: 'Home Inspector',
-  building_code: 'Building Code Inspector',
-  contractor: 'Contractor',
-  engineer: 'Professional Engineer',
-  architect: 'Professional Architect',
-  other: 'Other',
-};
-
-// The footer's "Inspectors Initials" blank is meant to be initialed by hand
-// on every page of a paper form, but since this is typed, deriving it from
-// the inspector's name (rather than adding a whole separate form question
-// just for initials) keeps the UI from asking for the same fact twice.
-function initialsOf(name) {
-  const words = String(name || '').split(/\s+/).filter(Boolean);
-  if (!words.length) return '';
-  if (words.length === 1) return words[0][0].toUpperCase();
-  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
-}
-
 function setText(form, name, value) {
   if (value === undefined || value === null || value === '') return;
   try { form.getTextField(name).setText(String(value)); } catch { /* field not in this build — skip, not fatal */ }
 }
 
-function selectRadio(form, name, value) {
-  if (!value) return;
-  try {
-    const rg = form.getRadioGroup(name);
-    if (rg.getOptions().includes(value)) rg.select(value);
-  } catch { /* field not in this build — skip */ }
+function setCheck(form, name, checked = true) {
+  if (!name || !checked) return;
+  try { form.getCheckBox(name).check(); } catch { /* field not in this build — skip */ }
 }
 
-function setCheck(form, name, checked) {
-  if (!checked) return;
-  try { form.getCheckBox(name).check(); } catch { /* field not in this build — skip */ }
+/** Checks the one field matching `key` out of a {key: pdfFieldName} map — this master's "radio" questions are independent checkboxes, not a PDFRadioGroup. */
+function setOneOf(form, map, key) {
+  if (!key) return;
+  setCheck(form, map[key]);
+}
+
+/** yyyy-mm-dd (HTML date input format) -> { mm, dd, yyyy }, all '' if unparseable. */
+function splitDate(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? { yyyy: m[1], mm: m[2], dd: m[3] } : { yyyy: '', mm: '', dd: '' };
 }
 
 async function drawSignature(pdfDoc, page, dataUrl, x, y, maxWidth, maxHeight) {
@@ -117,111 +94,364 @@ async function drawSignature(pdfDoc, page, dataUrl, x, y, maxWidth, maxHeight) {
   page.drawImage(img, { x, y, width: w, height: h });
 }
 
+// windmit.js's q6_min_conditions / q8_methods checkgroup options, in the
+// exact order their PDF checkboxes are listed below — matched by array
+// index, not by string content (the option text is long/legal, the field
+// names below are short and stable).
+const WINDMIT_Q6_MIN_OPTIONS = [
+  'Metal connectors secured to truss/rafter with ≥3 nails, attached to top plate or embedded in bond beam with <½" gap, free of visible severe corrosion',
+  'Single-strap connector wraps over truss/rafter, secured with ≥3 nails each side, free of visible severe corrosion',
+  'Purpose-made connector/fastener installed per manufacturer specifications to substantiated capacity',
+];
+const WINDMIT_Q8_METHOD_OPTIONS = [
+  'Fully adhered polymer-modified bitumen underlayment (ASTM D1970)',
+  'Tape over roof deck seams (≥3.75" self-adhering polymer-modified bitumen or AAMA 711 Level 3 tape)',
+  'Double layer of felt or synthetic with no tape',
+  'Spray foam products along rafter deck intersections and panel joints',
+  'Entire roof deck underside covered',
+];
+
+// ---- option key -> PDF field name, one map per question ----
+
+const Q1_ANSWER_FIELDS = {
+  A: 'A Code in force at time of permit application was the FBC 2001  2004 Year Built',
+  B: 'B Code in force at time of permit application was the FBC 2007 and later Year Built',
+  C: 'C For the HVHZ Only Code in force at time of permit application was the SFBC94 Year Built',
+  D: 'D Unknown or does not meet the requirements of Answer A or B or C',
+};
+// Each of A/B/C has its own Year Built + Permit Date blanks (different code
+// eras) — only the selected option's set gets filled, matching the printed
+// form (the other two stay blank, same as on paper).
+const Q1_YEAR_BUILT_FIELDS = { A: 'For homes built in 20022003', B: 'For homes built in 20072008', C: 'For homes built in 1994' };
+const Q1_PERMIT_DATE_SPLIT_FIELDS = {
+  A: { mm: 'provide a permit application with a date after 312002 Building Permit Application Date MMDDYYYY', dd: 'undefined', yyyy: 'undefined_2' },
+  B: { mm: 'provide a permit application with a date after 1282006 Building Permit Application Date MMDDYYYY', dd: 'undefined_3', yyyy: 'undefined_4' },
+};
+// Option C's permit date is one combined blank on this master, not split MM/DD/YYYY.
+const Q1_PERMIT_DATE_C_FIELD = 'undefined_5';
+
+const Q2_ANSWER_FIELDS = {
+  'HVHZ': 'HVHZ',
+  'Region 1': 'toggle_9',
+  'Region 2': 'Region 2 130 mph  139 mph',
+  'Region 3': 'Region 3  130 mph',
+};
+
+const Q3_ANSWER_FIELDS = { '≥ 6:12': 'toggle_12', '< 6:12': 'Less than  612' };
+
+// Q4.1 table: one row per roof covering type, each with an in-use checkbox,
+// a permit date split into MM/DD/YYYY, an approval-number blank and a
+// year-installed blank. "Other" additionally has its own describe-text
+// field. No "No Info Provided" column was detected on this master (the
+// same gap this app's old hand-measured build also had for that column).
+const Q4_ROW_FIELDS = {
+  'Asphalt/Fiberglass Shingle': { inuse: 'AsphaltFiberglass', mm: 'Application Date', dd: 'undefined_6', yyyy: 'undefined_7', approval: 'Approval 1', year: 'Replacement 1' },
+  'Concrete/Clay Tile': { inuse: 'ConcreteClay Tile', mm: '1', dd: 'undefined_8', yyyy: 'undefined_9', approval: 'Approval 2', year: 'Replacement 2' },
+  'Synthetic/Composite Tile': { inuse: 'SyntheticComposite Tile', mm: '2', dd: 'undefined_10', yyyy: 'undefined_11', approval: '1_2', year: '1_3' },
+  'Metal': { inuse: 'Metal', mm: '3', dd: 'undefined_12', yyyy: 'undefined_13', approval: '2_2', year: '2_3' },
+  'Built Up': { inuse: 'Built Up', mm: '4', dd: 'undefined_14', yyyy: 'undefined_15', approval: '3_2', year: '3_3' },
+  'Membrane': { inuse: 'Membrane', mm: '5', dd: 'undefined_16', yyyy: 'undefined_17', approval: '4_2', year: '4_3' },
+  'Other': { inuse: 'Other', mm: 'undefined_19', dd: 'undefined_20', yyyy: 'undefined_21', approval: 'undefined_22', year: 'undefined_23' },
+};
+const Q4_OTHER_DESC_FIELD = 'undefined_18';
+
+const Q4_2_ANSWER_FIELDS = {
+  A: 'A All roof coverings listed above meet the FBC with a FBC or MiamiDade Product Approval listing current at the time of installation',
+  B: 'B All roof coverings have a MiamiDade Product Approval listing current at time of installation OR for the HVHZ only a roofing',
+  C: 'C One or more roof coverings do not meet the requirements of Answer A or B',
+  D: 'D No roof coverings meet the requirements of Answer A or B',
+};
+
+const Q5_ANSWER_FIELDS = {
+  A: 'A PlywoodOriented strand board OSB roof sheathing with minimum thickness of 716 attached to the roof trussrafter spaced a',
+  B: 'B PlywoodOSB roof sheathing with a minimum thickness of 716 attached to the roof trussrafter spaced a maximum of 24 oc',
+  C: 'C PlywoodOSB roof sheathing with a minimum thickness of 716 attached to the roof trussrafter spaced a maximum of 24 oc',
+  D: 'D Reinforced Concrete Roof Deck',
+  E: 'E Spray foam products with an uplift resistance of 110 PSF FOS 15 Spray foam must be installed along rafter deck intersections',
+  F: 'F Other',
+  G: 'G Unknown or unidentified',
+  H: 'H No attic access',
+};
+const Q5_OTHER_DESC_FIELD = 'all panel joints etc';
+
+const Q6_ANSWER_FIELDS = {
+  A: 'A Toenails',
+  B: 'B Clips',
+  C: 'C Single Wraps',
+  D: 'D Double Wraps',
+  E: 'E Structural Anchor bolts structurally connected or reinforced concrete roof',
+  F: 'F Other_2',
+  G: 'G Unknown or unidentified_2',
+  H: 'H No attic access_2',
+  I: 'I Connections not installed as intended',
+};
+const Q6_OTHER_DESC_FIELD = 'undefined_24';
+// windmit.js stores the selected option *strings*, not indices — these match
+// by array index against WINDMIT's own q6_min_conditions option list.
+const Q6_MIN_CONDITION_FIELDS = [
+  '1 Metal connectors secured to trussrafter with a minimum of three 3 nails and attached to the side andor bottom of the',
+  '2 Metal connectors consisting of a single strap that wraps over the trussrafter are secured to the side of the wall andor',
+  '3 Purposemade metal connectors or structural fasteners installed per the manufacturers installation specifications to',
+];
+
+const Q7_ANSWER_FIELDS = {
+  A: 'A Hip Roof',
+  B: 'B Flat Roof',
+  C: 'C Other Roof Any roof that does not qualify as either A or B above',
+};
+
+const Q8_ANSWER_FIELDS = {
+  A: 'A Sealed Roof Deck also called SWR',
+  B: 'B No Sealed Roof Deck',
+  C: 'C Unknown or undetermined',
+};
+const Q8_METHOD_FIELDS = [
+  'Fully adhered polymermodified bitumen roofing underlayment complying with ASTM D1970',
+  'Tape over roof deck seams with felt or synthetic A minimum 375inchwide 95 mm strip of selfadhering polymer',
+  'Double layer of felt or synthetic with no tape Two layers of ASTM D226 Type II ASTM D4869 Type III or Type IV or',
+  'Spray foam products Spray foam must be installed along rafter deck intersections all panel joints etc',
+  'check here if entire roof deck underside covered',
+];
+
+// Q9's opening-protection matrix — 9 rows x 6 columns, all real checkboxes
+// on this master (the one thing the old hand-measured build couldn't do at
+// all). Row order and column ids match WINDMIT.sections' q9_table exactly.
+const Q9_TABLE_FIELDS = {
+  'N/A — no openings of this type': {
+    win_entry: 'Windows or Entry DoorsNot applicable  there are no openings of this type on the structure',
+    garage_glazed: 'Garage DoorsNot applicable  there are no openings of this type on the structure',
+    skylights: 'SkylightsNot applicable  there are no openings of this type on the structure',
+    glass_block: 'Glass BlockNot applicable  there are no openings of this type on the structure',
+    entry_nonglazed: 'Entry DoorsRow1', garage_nonglazed: 'Garage DoorsRow1',
+  },
+  'A — Cyclic pressure & 9 lb. large missile (4.5 lb. skylights)': {
+    win_entry: 'Windows or Entry DoorsVerified cyclic pressure  large missile 9 lb for windows doors45 lb for skylights',
+    garage_glazed: 'Garage DoorsVerified cyclic pressure  large missile 9 lb for windows doors45 lb for skylights',
+    skylights: 'SkylightsVerified cyclic pressure  large missile 9 lb for windows doors45 lb for skylights',
+    glass_block: 'Glass BlockVerified cyclic pressure  large missile 9 lb for windows doors45 lb for skylights',
+    entry_nonglazed: 'Entry DoorsRow2', garage_nonglazed: 'Garage DoorsRow2',
+  },
+  'B — Cyclic pressure & 4-8 lb. large missile (2 lb. skylights)': {
+    win_entry: 'Windows or Entry DoorsVerified cyclic pressure  large missile 48 lb for windows doors2 lb for skylights',
+    garage_glazed: 'Garage DoorsVerified cyclic pressure  large missile 48 lb for windows doors2 lb for skylights',
+    skylights: 'SkylightsVerified cyclic pressure  large missile 48 lb for windows doors2 lb for skylights',
+    glass_block: 'Glass BlockVerified cyclic pressure  large missile 48 lb for windows doors2 lb for skylights',
+    entry_nonglazed: 'Entry DoorsRow3', garage_nonglazed: 'Garage DoorsRow3',
+  },
+  'C — Plywood/OSB meeting Table 1609.1.2 FBC 2007': {
+    win_entry: 'Windows or Entry DoorsVerified plywoodOSB meeting Table 160912 of the FBC 2007',
+    garage_glazed: 'Garage DoorsVerified plywoodOSB meeting Table 160912 of the FBC 2007',
+    skylights: 'SkylightsVerified plywoodOSB meeting Table 160912 of the FBC 2007',
+    glass_block: 'Glass BlockVerified plywoodOSB meeting Table 160912 of the FBC 2007',
+    entry_nonglazed: 'Entry DoorsRow4', garage_nonglazed: 'Garage DoorsRow4',
+  },
+  'D — Non-glazed doors meeting ASTM E330 / ANSI-DASMA 108 / PA-TAS 202': {
+    win_entry: 'Windows or Entry DoorsVerified NonGlazed Entry or Garage Doors indicating compliance with ASTM E 330 ANSIDASMA 108 or PATAS 202 for wind pressure resistance',
+    garage_glazed: 'Garage DoorsVerified NonGlazed Entry or Garage Doors indicating compliance with ASTM E 330 ANSIDASMA 108 or PATAS 202 for wind pressure resistance',
+    skylights: 'SkylightsVerified NonGlazed Entry or Garage Doors indicating compliance with ASTM E 330 ANSIDASMA 108 or PATAS 202 for wind pressure resistance',
+    glass_block: 'Glass BlockVerified NonGlazed Entry or Garage Doors indicating compliance with ASTM E 330 ANSIDASMA 108 or PATAS 202 for wind pressure resistance',
+    entry_nonglazed: 'Entry DoorsRow5', garage_nonglazed: 'Garage DoorsRow5',
+  },
+  'N — Appears to be A or B but not verified': {
+    win_entry: 'Windows or Entry DoorsOpening Protection products that appear to be A or B but are not verified',
+    garage_glazed: 'Garage DoorsOpening Protection products that appear to be A or B but are not verified',
+    skylights: 'SkylightsOpening Protection products that appear to be A or B but are not verified',
+    glass_block: 'Glass BlockOpening Protection products that appear to be A or B but are not verified',
+    entry_nonglazed: 'Entry DoorsRow6', garage_nonglazed: 'Garage DoorsRow6',
+  },
+  'Other protective coverings not identified as A, B or C': {
+    win_entry: 'Windows or Entry DoorsOther protective coverings that cannot be identified as A B or C',
+    garage_glazed: 'Garage DoorsOther protective coverings that cannot be identified as A B or C',
+    skylights: 'SkylightsOther protective coverings that cannot be identified as A B or C',
+    glass_block: 'Glass BlockOther protective coverings that cannot be identified as A B or C',
+    entry_nonglazed: 'Entry DoorsRow7', garage_nonglazed: 'Garage DoorsRow7',
+  },
+  'X — No windborne debris protection': {
+    win_entry: 'Windows or Entry DoorsNo Windborne Debris Protection',
+    garage_glazed: 'Garage DoorsNo Windborne Debris Protection',
+    skylights: 'SkylightsNo Windborne Debris Protection',
+    glass_block: 'Glass BlockNo Windborne Debris Protection',
+    entry_nonglazed: 'Entry DoorsRow8', garage_nonglazed: 'Garage DoorsRow8',
+  },
+  'Z — Damaged, needs repair/replacement': {
+    win_entry: 'Windows or Entry DoorsDamaged openings in need of repairreplacement',
+    garage_glazed: 'Garage DoorsDamaged openings in need of repairreplacement',
+    skylights: 'SkylightsDamaged openings in need of repairreplacement',
+    glass_block: 'Glass BlockDamaged openings in need of repairreplacement',
+    entry_nonglazed: 'Entry DoorsRow9', garage_nonglazed: 'Garage DoorsRow9',
+  },
+};
+
+const Q9_ANSWER_FIELDS = {
+  A: 'A Exterior Openings Cyclic Pressure and 9lb Large Missile 45 lb for skylights only All glazed openings are protected at a',
+  B: 'B Exterior Opening ProtectionCyclic Pressure and 4 to 8lb Large Missile 245 lb for skylights only All glazed openings',
+  C: 'C Exterior Opening Protection  Wood Structural Panels meeting FBC 2007 All glazed openings are covered with',
+  N: 'N Exterior Opening Protection unverified shutter systems with no documentation All glazed openings are protected with',
+  X: 'X None or Some Glazed Openings One or more glazed openings classified Level X or Z in the table above and None in the factor',
+  Z: 'Z Damaged Openings One or more openings are damaged and in need of repair or replacement Any openings meeting Level Z',
+};
+// Each answer needing a non-glazed qualifier (A/B/C/N) has its own 3-option
+// sub-choice on the printed form — resolved against whichever one matches
+// the selected q9_answer.
+const Q9_SUB_FIELDS = {
+  A: { 1: 'A1 All nonglazed openings classified as A in the table above or no nonglazed openings exist', 2: 'A2 One or more nonglazed openings classified as Level D in the table above and no nonglazed openings classified as Level B C N or X', 3: 'A3 One or more nonglazed openings is classified as Level B C N X or Z in the table above' },
+  B: { 1: 'B1 All nonglazed openings classified as A or B in the table above or no nonglazed openings exist', 2: 'B2 One or more nonglazed openings classified as Level D in the table above and no nonglazed openings classified as Level C N or X in', 3: 'B3 One or more nonglazed openings is classified as Level C N X or Z in the table above' },
+  C: { 1: 'C1 All nonglazed openings classified as A B or C in the table above or no nonglazed openings exist', 2: 'C2 One or more nonglazed openings classified as Level D in the table above and no nonglazed openings classified as Level N or X', 3: 'C3 One or more nonglazed openings is classified as Level N X or Z in the table above' },
+  N: { 1: 'N1 All nonglazed openings classified as Level A B C or N in the table above or no nonglazed openings exist', 2: 'N2 One or more nonglazed openings classified as Level D in the table above and no nonglazed openings classified as Level X in the', 3: 'N3 One or more nonglazed openings is classified as Level X or Z in the table above' },
+};
+
+const INSP_QUALIFICATION_FIELDS = {
+  home_inspector: 'Home inspector licensed under Section 4688314 Florida Statutes who has completed the statutory number of hours of hurricane mitigation training',
+  building_code: 'Building code inspector certified under Section 468607 Florida Statutes',
+  contractor: 'General building or residential contractor licensed under Section 489111 Florida Statutes',
+  engineer: 'Professional engineer licensed under Section 471015 Florida Statutes',
+  architect: 'Professional architect licensed under Section 481213 Florida Statutes',
+  other: 'Any other individual or entity recognized by the insurer as possessing the necessary qualifications to properly complete a uniform mitigation',
+};
+const QUALIFICATION_LICENSE_TYPE = {
+  home_inspector: 'Home Inspector',
+  building_code: 'Building Code Inspector',
+  contractor: 'Contractor',
+  engineer: 'Professional Engineer',
+  architect: 'Professional Architect',
+  other: 'Other',
+};
+
 /** Fills the real Wind Mit PDF from `values` (inspection.forms.windmit) and returns a Blob. */
 export async function buildWindMitOfficialPdf(values = {}) {
   await loadVendor();
   const { PDFDocument } = window.PDFLib;
 
-  const templateBytes = await fetchWithRetry('js/vendor/forms/oir-b1-1802-fillable.pdf', 'arraybuffer');
+  const templateBytes = await fetchWithRetry('js/vendor/forms/oir-b1-1802-fillable-v2.pdf', 'arraybuffer');
   const pdfDoc = await PDFDocument.load(templateBytes);
   const form = pdfDoc.getForm();
 
   // ---- Owner Information ----
-  setText(form, 'owner_inspection_date', values.inspection_date);
-  setText(form, 'owner_name', values.owner_name);
-  setText(form, 'owner_contact_person', values.contact_person);
-  setText(form, 'owner_address', values.address);
-  setText(form, 'owner_home_phone', values.home_phone);
-  setText(form, 'owner_city', values.city);
-  setText(form, 'owner_zip', values.zip);
-  setText(form, 'owner_work_phone', values.work_phone);
-  setText(form, 'owner_county', values.county);
-  setText(form, 'owner_cell_phone', values.cell_phone);
-  setText(form, 'owner_insurance_co', values.insurance_co);
-  setText(form, 'owner_policy_no', values.policy_no);
-  setText(form, 'owner_year_of_home', values.year_of_home);
-  setText(form, 'owner_stories', values.stories);
-  setText(form, 'owner_email', values.email);
+  setText(form, 'Inspection Date', values.inspection_date);
+  setText(form, 'Owner Name', values.owner_name);
+  setText(form, 'Contact Person', values.contact_person);
+  setText(form, 'Address', values.address);
+  setText(form, 'Home Phone', values.home_phone);
+  setText(form, 'City', values.city);
+  setText(form, 'Zip', values.zip);
+  setText(form, 'Work Phone', values.work_phone);
+  setText(form, 'County', values.county);
+  setText(form, 'Cell Phone', values.cell_phone);
+  setText(form, 'Insurance Company', values.insurance_co);
+  setText(form, 'Policy', values.policy_no);
+  setText(form, 'Year of Home', values.year_of_home);
+  setText(form, ' of Stories', values.stories);
+  setText(form, 'Email', values.email);
 
-  // ---- Q1-Q3 ----
-  selectRadio(form, 'q1_answer', values.q1_answer);
-  selectRadio(form, 'q2_answer', values.q2_answer);
-  selectRadio(form, 'q3_answer', values.q3_answer);
+  // ---- Q1 Building Code ----
+  setOneOf(form, Q1_ANSWER_FIELDS, values.q1_answer);
+  if (['A', 'B', 'C'].includes(values.q1_answer)) {
+    setText(form, Q1_YEAR_BUILT_FIELDS[values.q1_answer], values.q1_year_built);
+    if (values.q1_answer === 'C') {
+      setText(form, Q1_PERMIT_DATE_C_FIELD, values.q1_permit_date);
+    } else {
+      const { mm, dd, yyyy } = splitDate(values.q1_permit_date);
+      const f = Q1_PERMIT_DATE_SPLIT_FIELDS[values.q1_answer];
+      setText(form, f.mm, mm);
+      setText(form, f.dd, dd);
+      setText(form, f.yyyy, yyyy);
+    }
+  }
+
+  // ---- Q2-Q3 ----
+  setOneOf(form, Q2_ANSWER_FIELDS, values.q2_answer);
+  setOneOf(form, Q3_ANSWER_FIELDS, values.q3_answer);
 
   // ---- Q4 Roof Covering ----
   const q4 = values.q4_table || {};
   for (const [row, cell] of Object.entries(q4)) {
-    if (cell?.inuse) setCheck(form, `q4_inuse_${row}`, true);
-    if (cell?.noinfo) setCheck(form, `q4_noinfo_${row}`, true);
+    const fields = Q4_ROW_FIELDS[row];
+    if (!fields || !cell) continue;
+    if (cell.inuse) setCheck(form, fields.inuse);
+    const { mm, dd, yyyy } = splitDate(cell.permit);
+    setText(form, fields.mm, mm);
+    setText(form, fields.dd, dd);
+    setText(form, fields.yyyy, yyyy);
+    setText(form, fields.approval, cell.approval);
+    setText(form, fields.year, cell.year);
   }
-  selectRadio(form, 'q4_2_answer', values.q4_2_answer);
+  setText(form, Q4_OTHER_DESC_FIELD, values.q4_other_desc);
+  setOneOf(form, Q4_2_ANSWER_FIELDS, values.q4_2_answer);
 
   // ---- Q5-Q6 ----
-  selectRadio(form, 'q5_answer', values.q5_answer);
-  selectRadio(form, 'q6_answer', values.q6_answer);
-  // windmit.js stores the selected option *strings*, not indices — map each
-  // one back to its position in the field's own option list, since the PDF
-  // checkboxes are matched by array index, not by the (long, legal) text.
+  setOneOf(form, Q5_ANSWER_FIELDS, values.q5_answer);
+  setText(form, Q5_OTHER_DESC_FIELD, values.q5_other_desc);
+  setOneOf(form, Q6_ANSWER_FIELDS, values.q6_answer);
+  setText(form, Q6_OTHER_DESC_FIELD, values.q6_other_desc);
   if (Array.isArray(values.q6_min_conditions)) {
-    const opts = WINDMIT.sections.find((s) => s.id === 'q6').fields.find((f) => f.id === 'q6_min_conditions').options;
     values.q6_min_conditions.forEach((label) => {
-      const idx = opts.indexOf(label);
-      if (idx >= 0 && Q6_MIN_FIELDS[idx]) setCheck(form, Q6_MIN_FIELDS[idx], true);
+      const idx = WINDMIT_Q6_MIN_OPTIONS.indexOf(label);
+      if (idx >= 0 && Q6_MIN_CONDITION_FIELDS[idx]) setCheck(form, Q6_MIN_CONDITION_FIELDS[idx]);
     });
   }
 
   // ---- Q7-Q8 ----
-  selectRadio(form, 'q7_answer', values.q7_answer);
-  setText(form, 'q7_nonhip_len', values.q7_nonhip_len);
-  setText(form, 'q7_perimeter', values.q7_perimeter);
-  setText(form, 'q7_flat_area', values.q7_flat_area);
-  setText(form, 'q7_total_area', values.q7_total_area);
-  selectRadio(form, 'q8_answer', values.q8_answer);
+  setOneOf(form, Q7_ANSWER_FIELDS, values.q7_answer);
+  setText(form, 'Total length of nonhip features', values.q7_nonhip_len);
+  setText(form, 'feet Total roof system perimeter', values.q7_perimeter);
+  setText(form, '212 Roof area with slope less than 212', values.q7_flat_area);
+  setText(form, 'sq ft Total roof area', values.q7_total_area);
+  setOneOf(form, Q8_ANSWER_FIELDS, values.q8_answer);
   if (Array.isArray(values.q8_methods)) {
-    const opts = WINDMIT.sections.find((s) => s.id === 'q8').fields.find((f) => f.id === 'q8_methods').options;
     values.q8_methods.forEach((label) => {
-      const idx = opts.indexOf(label);
-      if (idx >= 0 && Q8_METHOD_FIELDS[idx]) setCheck(form, Q8_METHOD_FIELDS[idx], true);
+      const idx = WINDMIT_Q8_METHOD_OPTIONS.indexOf(label);
+      if (idx >= 0 && Q8_METHOD_FIELDS[idx]) setCheck(form, Q8_METHOD_FIELDS[idx]);
     });
   }
 
   // ---- Q9 Opening Protection ----
-  selectRadio(form, 'q9_answer', values.q9_answer);
-  if (values.q9_answer && values.q9_sub) {
-    selectRadio(form, `q9_sub_${values.q9_answer}`, values.q9_sub);
+  // The grid cells are tiny text fields on this master, not checkboxes
+  // (confirmed via tools/cdp_verify_windmit_v2_pdf.py — setCheck threw
+  // "expected type e, got type r" for every one of them). An "X" reads the
+  // same as a checkmark at that size, same fix as the 4-Point plumbing grid.
+  const q9 = values.q9_table || {};
+  for (const [row, cols] of Object.entries(q9)) {
+    const fields = Q9_TABLE_FIELDS[row];
+    if (!fields || !cols) continue;
+    for (const [colId, name] of Object.entries(fields)) {
+      if (cols[colId]) setText(form, name, 'X');
+    }
+  }
+  setOneOf(form, Q9_ANSWER_FIELDS, values.q9_answer);
+  if (values.q9_answer && values.q9_sub && Q9_SUB_FIELDS[values.q9_answer]) {
+    setCheck(form, Q9_SUB_FIELDS[values.q9_answer][values.q9_sub]);
   }
 
   // ---- Qualified Inspector ----
-  setText(form, 'insp_name', values.insp_name);
-  setText(form, 'insp_print_name', values.insp_name);
-  setText(form, 'insp_license_no', values.insp_license_no);
-  setText(form, 'insp_company', values.insp_company);
-  setText(form, 'insp_phone', values.insp_phone);
-  setText(form, 'insp_employee_name', values.insp_employee_name);
-  setText(form, 'insp_date', values.insp_date);
-  selectRadio(form, 'insp_qualification', values.insp_qualification);
-  if (values.insp_qualification) {
-    setText(form, 'insp_license_type', QUALIFICATION_LICENSE_TYPE[values.insp_qualification] || '');
+  setText(form, 'Qualified Inspector Name', values.insp_name);
+  setText(form, 'License or Certificate', values.insp_license_no);
+  setText(form, 'Inspection Company', values.insp_company);
+  setText(form, 'Phone', values.insp_phone);
+  setOneOf(form, INSP_QUALIFICATION_FIELDS, values.insp_qualification);
+  if (values.insp_qualification) setText(form, 'License Type', QUALIFICATION_LICENSE_TYPE[values.insp_qualification] || '');
+
+  // ---- Certification / signatures (page index 5) ----
+  setText(form, 'I', values.insp_name); // "I, ___(print name)___, am a qualified inspector..."
+  setText(form, 'contractors and professional engineers only I had my employee', values.insp_employee_name);
+  setText(form, 'Date', values.insp_date);
+  setText(form, 'Date_2', values.owner_sign_date);
+
+  try {
+    form.updateFieldAppearances();
+  } catch {
+    // Same fallback as fourPointPdfFill.js — if any leftover field trips
+    // pdf-lib's blanket appearance pass, let viewers regenerate appearances
+    // themselves instead (every filled value still displays correctly).
+    const { PDFName, PDFBool } = window.PDFLib;
+    form.acroForm.dict.set(PDFName.of('NeedAppearances'), PDFBool.True);
   }
-
-  // ---- Homeowner attestation ----
-  setText(form, 'owner_sign_date', values.owner_sign_date);
-
-  // ---- Running footer (repeats on every page) ----
-  const footerInitials = initialsOf(values.insp_name);
-  for (let p = 0; p < 6; p++) {
-    setText(form, `footer_initials_p${p}`, footerInitials);
-    setText(form, `footer_property_address_p${p}`, values.address);
-  }
-
-  form.updateFieldAppearances();
 
   // Signatures are drawn as images over their (blank) placeholder fields —
   // an AcroForm text field can't hold a drawn signature, only typed text.
   const pages = pdfDoc.getPages();
-  await drawSignature(pdfDoc, pages[5], values.insp_signature, 200, 592, 180, 26);
-  await drawSignature(pdfDoc, pages[5], values.owner_signature, 88, 448, 180, 26);
+  await drawSignature(pdfDoc, pages[5], values.insp_signature, 169.9, 591, 175.1, 16.4);
+  await drawSignature(pdfDoc, pages[5], values.owner_signature, 89.2, 446.5, 208.9, 11.9);
 
-  const bytes = await pdfDoc.save();
+  const bytes = await pdfDoc.save({ updateFieldAppearances: false });
   return new Blob([bytes], { type: 'application/pdf' });
 }

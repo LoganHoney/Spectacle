@@ -3,14 +3,16 @@
 
 import { FOURPOINT } from './fourpoint.js';
 import { WINDMIT } from './windmit.js';
+import { ROOFCERT } from './roofcert.js';
 
-export const FORMS = { fourpoint: FOURPOINT, windmit: WINDMIT };
+export const FORMS = { fourpoint: FOURPOINT, windmit: WINDMIT, roofcert: ROOFCERT };
 
 export const getForm = (id) => FORMS[id] || null;
 
 export const FORM_MENU = [
   { id: 'fourpoint', name: 'Citizens 4-Point', code: 'Form Insp4pt 03/25' },
   { id: 'windmit', name: 'Wind Mitigation', code: 'OIR-B1-1802' },
+  { id: 'roofcert', name: 'Roof Certification', code: 'RCF-1 03/25' },
 ];
 
 /** A field is hidden when its `showIf: [otherFieldId, [allowedValues]]` isn't satisfied. */

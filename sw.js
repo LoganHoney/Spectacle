@@ -2,7 +2,7 @@
 // changes so returning devices pick up the update instead of serving stale
 // JS forever — that's the whole point of the cache-first strategy below.
 
-const CACHE_VERSION = 'hi-v42';
+const CACHE_VERSION = 'hi-v45';
 const CACHE_NAME = `hernando-inspections-${CACHE_VERSION}`;
 
 const PRECACHE = [
@@ -24,12 +24,14 @@ const PRECACHE = [
   'js/core/media.js',
   'js/core/merge.js',
   'js/core/router.js',
+  'js/core/routing.js',
   'js/core/signingClient.js',
   'js/core/store.js',
   'js/core/ui.js',
   'js/forms/crosspopulate.js',
   'js/forms/engine.js',
   'js/forms/fourpoint.js',
+  'js/forms/roofcert.js',
   'js/forms/windmit.js',
   'js/core/reportClient.js',
   'js/core/supabaseClient.js',
@@ -38,11 +40,14 @@ const PRECACHE = [
   'js/report/comments.js',
   'js/report/emailTemplates.js',
   'js/report/export.js',
+  'js/report/fourPointPdfFill.js',
   'js/report/pdf.js',
   'js/report/render.js',
+  'js/report/roofCertPdfFill.js',
   'js/report/template.js',
   'js/report/windmitPdfFill.js',
   'js/views/account.js',
+  'js/views/admin.js',
   'js/views/agreement.js',
   'js/views/annotate.js',
   'js/views/checklist.js',
@@ -64,7 +69,9 @@ const PRECACHE = [
   'js/vendor/html2canvas.min.js',
   'js/vendor/supabase.min.js',
   'js/vendor/pdf-lib.min.js',
-  'js/vendor/forms/oir-b1-1802-fillable.pdf',
+  'js/vendor/forms/oir-b1-1802-fillable-v2.pdf',
+  'js/vendor/forms/insp4pt-fillable.pdf',
+  'js/vendor/forms/roofcert-fillable.pdf',
 ];
 
 self.addEventListener('install', (event) => {

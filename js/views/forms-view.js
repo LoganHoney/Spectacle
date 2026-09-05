@@ -35,6 +35,10 @@ export async function formView(view, { id, formId }) {
     await save.flush();
   }
   const mediaSlots = new Set((await media.mediaFor(id)).map((m) => m.slot));
+  // Which sub-tab (e.g. Main Panel vs Second Panel) is active per section —
+  // keyed by section id, persists across re-renders since it lives in this
+  // closure rather than in `values`/`inspection` itself.
+  const activeTabs = {};
 
   setTopbar({
     title: FORM_MENU.find((f) => f.id === formId)?.name || form.title, back: () => go(`/inspection/${id}`),
@@ -73,11 +77,21 @@ export async function formView(view, { id, formId }) {
   function sectionHtml(section) {
     const fields = section.fields.filter((f) => visible(f, values));
     if (!fields.length) return '';
+    // Sections like Roof (Predominant/Secondary) and Electrical (Main/Second
+    // Panel) tag their per-side fields with `group`; a tab switcher shows one
+    // side at a time instead of every field doubled up on the page. Fields
+    // with no `group` (e.g. shared hazards/photos) always show.
+    const hasTabs = Array.isArray(section.tabs) && section.tabs.length > 1;
+    const activeTab = hasTabs ? (activeTabs[section.id] || section.tabs[0].key) : null;
+    const shownFields = hasTabs ? fields.filter((f) => !f.group || f.group === activeTab) : fields;
     return `<details class="sec" open data-section="${section.id}">
       <summary><span>${esc(section.title)}</span></summary>
       <div class="body">
         ${section.prompt ? `<p class="small muted">${esc(section.prompt)}</p>` : ''}
-        <div class="stack">${fields.map(fieldHtml).join('')}</div>
+        ${hasTabs ? `<div class="opts" data-subtab="${section.id}" style="margin-bottom:12px">
+          ${section.tabs.map((t) => `<button data-v="${esc(t.key)}" aria-pressed="${t.key === activeTab}">${esc(t.label)}</button>`).join('')}
+        </div>` : ''}
+        <div class="stack">${shownFields.map(fieldHtml).join('')}</div>
       </div>
     </details>`;
   }
@@ -119,7 +133,7 @@ export async function formView(view, { id, formId }) {
       <span style="display:block;font-size:13px;font-weight:600;color:var(--ink-2);margin:0 0 5px">${esc(field.label)}</span>
       <div class="opts" data-radio="${field.id}">
         ${field.options.map((o) => `<button data-v="${esc(o.key)}" aria-pressed="${o.key === cur}">
-          <span class="k">${esc(o.key)}.</span>${esc(o.label)}
+          ${o.key !== o.label ? `<span class="k">${esc(o.key)}.</span>` : ''}${esc(o.label)}
           ${o.sub ? `<div class="small muted" style="margin-top:3px">${esc(o.sub)}</div>` : ''}
         </button>`).join('')}
       </div></div>`;
@@ -174,6 +188,10 @@ export async function formView(view, { id, formId }) {
       values[el.dataset.f] = el.value;
       if (el.tagName === 'SELECT' || el.type === 'date') render(); // computed fields may depend on it
       save();
+    });
+    on(view, 'click', '[data-subtab] [data-v]', (_e, el) => {
+      activeTabs[el.closest('[data-subtab]').dataset.subtab] = el.dataset.v;
+      render();
     });
     on(view, 'click', '[data-radio] [data-v]', (_e, el) => {
       const fieldId = el.closest('[data-radio]').dataset.radio;

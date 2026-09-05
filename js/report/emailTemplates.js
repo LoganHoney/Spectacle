@@ -6,6 +6,7 @@ export const EMAIL_TEMPLATE_TYPES = [
   { key: 'full', label: 'Regular Inspection Report' },
   { key: 'fourpoint', label: '4-Point Report' },
   { key: 'windmit', label: 'Wind Mitigation Report' },
+  { key: 'roofcert', label: 'Roof Certification Report' },
 ];
 
 export const DEFAULT_EMAIL_TEMPLATES = {
@@ -50,6 +51,18 @@ Thanks,
     body: `Hi {Inspectee},
 
 Attached is the completed Uniform Mitigation Verification Inspection (Wind Mitigation) Report for {InspectionAddressInline}, inspected on {InspectionDate}. This can be submitted directly to your insurance carrier or agent for premium credits.
+
+Let me know if you have any questions.
+
+Thanks,
+{Inspector}
+{InspectorCompany}`,
+  },
+  roofcert: {
+    subject: 'Roof Certification Report — {InspectionAddressInline}',
+    body: `Hi {Inspectee},
+
+Attached is the completed Roof Certification Report for {InspectionAddressInline}, inspected on {InspectionDate}. This can be submitted directly to your insurance carrier or agent.
 
 Let me know if you have any questions.
 
