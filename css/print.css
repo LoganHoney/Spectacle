@@ -27,6 +27,8 @@
 .rp-cover2-logo-bottom .rp-cover2-logo-img{max-height:36px}
 .rp-cover2-title{font-family:Arial, Helvetica, sans-serif;font-size:20px;font-weight:800;
   color:var(--rp-accent);margin:0 0 11px;letter-spacing:-.01em}
+.rp-cover2-tagline{font-family:Arial, Helvetica, sans-serif;font-size:12px;font-style:italic;
+  color:var(--rp-muted);margin:-8px 0 11px}
 .rp-cover2-block{margin:0 0 9px}
 .rp-cover2-label{font-family:Arial, Helvetica, sans-serif;font-weight:800;font-size:12px;
   text-transform:uppercase;letter-spacing:.03em;color:var(--rp-ink);margin-bottom:2px}

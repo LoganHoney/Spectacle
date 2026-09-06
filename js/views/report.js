@@ -50,7 +50,7 @@ export async function emailReportToClient(hydrated, formId) {
       applyCandidates(values, candidates);
       await store.saveInspection(inspection);
     }
-    pdfBlob = OFFICIAL_PDF_BUILDERS[formId] ? await OFFICIAL_PDF_BUILDERS[formId](values) : await buildReportPdfBlob(hydrated, formId);
+    pdfBlob = OFFICIAL_PDF_BUILDERS[formId] ? await OFFICIAL_PDF_BUILDERS[formId](values, hydrated) : await buildReportPdfBlob(hydrated, formId);
   } else {
     pdfBlob = await buildReportPdfBlob(hydrated, formId);
   }
@@ -191,7 +191,7 @@ export async function reportView(view, { id, form: formId }) {
         applyCandidates(values, candidates);
         await store.saveInspection(inspection);
       }
-      const blob = await builder(values);
+      const blob = await builder(values, hydrated);
       downloadBlob(blob, `${filename().replace(/\.html$/, '')}-${OFFICIAL_PDF_SUFFIX[formId]}.pdf`);
       toast('Official form saved');
     } catch (err) {

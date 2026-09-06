@@ -98,6 +98,18 @@ export async function renderFormReport({ inspection, client, property, settings,
  * of the house, set once on the job page, used on every cover sheet. */
 export const COVER_PHOTO_SLOT = slotKey('cover', 'photo');
 
+/**
+ * Just the cover page, standalone — used to prepend the same branded cover
+ * (logo, company name, client/address/date, cover photo) onto the official
+ * 4-Point/Wind Mit/Roof Cert PDFs, which are pure AcroForm fills of the real
+ * government/insurance form and otherwise have no cover of their own.
+ */
+export async function renderCoverOnly({ inspection, client, property, settings, jobContacts }, urlFor, subtitle, code) {
+  const allMedia = await media.mediaFor(inspection.id);
+  const bySlot = groupBy(allMedia, (m) => m.slot);
+  return coverBlock(inspection, client, property, settings, jobContacts, bySlot, urlFor, subtitle, code);
+}
+
 // ---------------------------------------------------------------- pieces
 
 function coverBlock(inspection, client, property, settings, jobContacts, bySlot, urlFor, subtitle, code) {
@@ -113,6 +125,7 @@ function coverBlock(inspection, client, property, settings, jobContacts, bySlot,
   <header class="rp-cover2">
     <div class="rp-cover2-logo">${logo}</div>
     <h1 class="rp-cover2-title">${esc(subtitle || 'Residential Inspection Report')}</h1>
+    ${settings.coverTagline ? `<div class="rp-cover2-tagline">${esc(settings.coverTagline)}</div>` : ''}
     ${code ? `<div class="rp-code">${esc(code)}</div>` : ''}
 
     ${addrLine1 ? `<div class="rp-cover2-block">

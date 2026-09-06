@@ -48,6 +48,9 @@ const SETTINGS_DEFAULTS = {
   logoDataUrl: '',
   defaultFee: '',
   reportFooter: 'This report is the exclusive property of the inspection company and the client named herein.',
+  // Shown under the title on every report's cover page (main report, and now
+  // the 4-Point/Wind Mit/Roof Cert official PDFs) — optional, blank by default.
+  coverTagline: '',
   agreementTemplate: '',
   emailTemplates: {},
   signingApiUrl: 'https://spectacle-1ipx.onrender.com',

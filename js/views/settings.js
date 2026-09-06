@@ -80,6 +80,8 @@ export async function settingsView(view) {
         </div>
       </div>
       <label class="f"><span>Company name</span><input type="text" data-k="companyName" value="${esc(settings.companyName)}" ${dis()}></label>
+      <label class="f"><span>Cover page tagline (optional)</span><input type="text" data-k="coverTagline" value="${esc(settings.coverTagline)}" placeholder="e.g. Trusted Home Inspections Since 2015" ${dis()}></label>
+      <div class="small muted" style="margin:-4px 0 4px">Shown under the title on every report's cover page, including the 4-Point/Wind Mit/Roof Cert forms.</div>
       <label class="f"><span>Inspector name</span><input type="text" data-k="inspectorName" value="${esc(settings.inspectorName)}" ${dis()}></label>
       <div class="grid2">
         <label class="f"><span>License #</span><input type="text" data-k="license" value="${esc(settings.license)}" ${dis()}></label>

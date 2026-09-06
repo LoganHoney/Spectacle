@@ -30,6 +30,9 @@
 // grid here — every cell had no text glyph to anchor a field to on the flat
 // master, so it was entirely unmapped before.
 
+import { WINDMIT } from '../forms/windmit.js';
+import { buildCoverPageBytes } from './pdf.js';
+
 async function fetchWithRetry(url, mode, attempts = 3) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
@@ -319,8 +322,13 @@ const QUALIFICATION_LICENSE_TYPE = {
   other: 'Other',
 };
 
-/** Fills the real Wind Mit PDF from `values` (inspection.forms.windmit) and returns a Blob. */
-export async function buildWindMitOfficialPdf(values = {}) {
+/**
+ * Fills the real Wind Mit PDF from `values` (inspection.forms.windmit) and
+ * returns a Blob. `hydrated` (the same shape store.hydrate() returns — not
+ * `values` again) is optional; when given, the same branded cover page the
+ * main report already uses is prepended as page 1.
+ */
+export async function buildWindMitOfficialPdf(values = {}, hydrated = null) {
   await loadVendor();
   const { PDFDocument, StandardFonts } = window.PDFLib;
 
@@ -466,5 +474,18 @@ export async function buildWindMitOfficialPdf(values = {}) {
   // save() would redundantly re-run its own blanket appearance pass and
   // undo the navy-bold styling with default black.
   const bytes = await pdfDoc.save({ updateFieldAppearances: false });
-  return new Blob([bytes], { type: 'application/pdf' });
+  if (!hydrated) return new Blob([bytes], { type: 'application/pdf' });
+
+  // Prepend the same branded cover page the main report uses — this form's
+  // own PDF is otherwise just the bare government form with no cover of its own.
+  const coverBytes = await buildCoverPageBytes(hydrated, WINDMIT.title, WINDMIT.code);
+  const coverDoc = await PDFDocument.load(coverBytes);
+  const finalDoc = await PDFDocument.create();
+  const [coverPage] = await finalDoc.copyPages(coverDoc, [0]);
+  finalDoc.addPage(coverPage);
+  const filledDoc = await PDFDocument.load(bytes);
+  const formPages = await finalDoc.copyPages(filledDoc, filledDoc.getPageIndices());
+  formPages.forEach((p) => finalDoc.addPage(p));
+  const finalBytes = await finalDoc.save();
+  return new Blob([finalBytes], { type: 'application/pdf' });
 }

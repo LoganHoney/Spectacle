@@ -20,6 +20,9 @@
 // roof_damage_explain) — rather than silently dropping what the inspector
 // typed, those get appended to the Additional Comments field at fill time.
 
+import { FOURPOINT } from '../forms/fourpoint.js';
+import { buildCoverPageBytes } from './pdf.js';
+
 // Same retry-hardened fetch/script-load pattern as windmitPdfFill.js (not
 // exported there, so duplicated here) — this dev environment has seen
 // genuine transient fetch failures this late in a long request chain.
@@ -218,8 +221,13 @@ function collectOverflowNotes(values) {
   return notes;
 }
 
-/** Fills the real 4-Point PDF from `values` (inspection.forms.fourpoint) and returns a Blob. */
-export async function buildFourPointOfficialPdf(values = {}) {
+/**
+ * Fills the real 4-Point PDF from `values` (inspection.forms.fourpoint) and
+ * returns a Blob. `hydrated` (the same shape store.hydrate() returns — not
+ * `values` again) is optional; when given, the same branded cover page the
+ * main report already uses is prepended as page 1.
+ */
+export async function buildFourPointOfficialPdf(values = {}, hydrated = null) {
   await loadVendor();
   const { PDFDocument, StandardFonts } = window.PDFLib;
 
@@ -386,5 +394,18 @@ export async function buildFourPointOfficialPdf(values = {}) {
   // leftover "Signature1_es_:signer:signature" artifact (see
   // build_4point_fields.js's header comment) along the way.
   const bytes = await pdfDoc.save({ updateFieldAppearances: false });
-  return new Blob([bytes], { type: 'application/pdf' });
+  if (!hydrated) return new Blob([bytes], { type: 'application/pdf' });
+
+  // Prepend the same branded cover page the main report uses — this form's
+  // own PDF is otherwise just the bare government form with no cover of its own.
+  const coverBytes = await buildCoverPageBytes(hydrated, FOURPOINT.title, FOURPOINT.code);
+  const coverDoc = await PDFDocument.load(coverBytes);
+  const finalDoc = await PDFDocument.create();
+  const [coverPage] = await finalDoc.copyPages(coverDoc, [0]);
+  finalDoc.addPage(coverPage);
+  const filledDoc = await PDFDocument.load(bytes);
+  const formPages = await finalDoc.copyPages(filledDoc, filledDoc.getPageIndices());
+  formPages.forEach((p) => finalDoc.addPage(p));
+  const finalBytes = await finalDoc.save();
+  return new Blob([finalBytes], { type: 'application/pdf' });
 }

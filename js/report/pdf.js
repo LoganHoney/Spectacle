@@ -15,7 +15,7 @@
 // in practice.
 
 import * as media from '../core/media.js';
-import { renderFullReport, renderFormReport } from './render.js';
+import { renderFullReport, renderFormReport, renderCoverOnly } from './render.js';
 
 let vendorPromise = null;
 function loadVendor() {
@@ -68,6 +68,47 @@ function waitForImages(container) {
     img.addEventListener('load', res, { once: true });
     img.addEventListener('error', res, { once: true }); // one broken photo shouldn't hang the whole PDF
   }))));
+}
+
+/**
+ * Renders just the branded cover page (logo, company name, client/address/
+ * date, cover photo) as a single-page PDF's raw bytes — used to prepend the
+ * same cover the main report already has onto the official 4-Point/Wind
+ * Mit/Roof Cert PDFs, which are pure AcroForm fills with no cover of their
+ * own. The cover markup is sized to clear one page with margin to spare
+ * (see print.css's .rp-cover2 comment), so this captures exactly one page
+ * rather than looping like buildReportPdfBlob does for the full report.
+ */
+export async function buildCoverPageBytes(hydrated, subtitle, code) {
+  await loadVendor();
+  const { jsPDF } = window.jspdf;
+
+  const pdf = new jsPDF({ unit: 'px', format: 'letter' });
+  const pageW = pdf.internal.pageSize.getWidth();
+  const pageH = pdf.internal.pageSize.getHeight();
+
+  const urlFor = (record, which) => media.objectUrl(record, which);
+  const html = await renderCoverOnly(hydrated, urlFor, subtitle, code);
+
+  const container = document.createElement('div');
+  container.className = 'rp-root';
+  container.style.cssText = `position:fixed;left:-10000px;top:0;width:${pageW}px;max-width:none;background:#fff;z-index:-1`;
+  container.innerHTML = html;
+  document.body.appendChild(container);
+
+  try {
+    await waitForImages(container);
+    const canvas = await window.html2canvas(container, {
+      x: 0, y: 0, width: pageW, height: pageH,
+      windowWidth: pageW, windowHeight: pageH,
+      scale: 2, useCORS: true, backgroundColor: '#ffffff',
+    });
+    const imgData = canvas.toDataURL('image/jpeg', 0.85);
+    pdf.addImage(imgData, 'JPEG', 0, 0, pageW, pageH);
+    return pdf.output('arraybuffer');
+  } finally {
+    container.remove();
+  }
 }
 
 /** Builds a Blob (application/pdf) for the full report, or one insurance form if formId is given. */

@@ -11,6 +11,9 @@
 // field names, since this form has no electrical/HVAC/plumbing sections
 // ahead of the roof section competing for "Satisfactory"-style names.
 
+import { ROOFCERT } from '../forms/roofcert.js';
+import { buildCoverPageBytes } from './pdf.js';
+
 async function fetchWithRetry(url, mode, attempts = 3) {
   let lastErr;
   for (let i = 0; i < attempts; i++) {
@@ -92,8 +95,14 @@ const ROOF_DAMAGE_FIELDS_S = Object.fromEntries(
   Object.entries(ROOF_DAMAGE_FIELDS_P).map(([label, name]) => [label, `${name}_2`]),
 );
 
-/** Fills the real Roof Certification PDF from `values` (inspection.forms.roofcert) and returns a Blob. */
-export async function buildRoofCertOfficialPdf(values = {}) {
+/**
+ * Fills the real Roof Certification PDF from `values`
+ * (inspection.forms.roofcert) and returns a Blob. `hydrated` (the same
+ * shape store.hydrate() returns — not `values` again) is optional; when
+ * given, the same branded cover page the main report already uses is
+ * prepended as page 1.
+ */
+export async function buildRoofCertOfficialPdf(values = {}, hydrated = null) {
   await loadVendor();
   const { PDFDocument, StandardFonts } = window.PDFLib;
 
@@ -186,5 +195,18 @@ export async function buildRoofCertOfficialPdf(values = {}) {
   // save() would redundantly re-run its own blanket appearance pass and
   // undo the navy-bold styling with default black.
   const bytes = await pdfDoc.save({ updateFieldAppearances: false });
-  return new Blob([bytes], { type: 'application/pdf' });
+  if (!hydrated) return new Blob([bytes], { type: 'application/pdf' });
+
+  // Prepend the same branded cover page the main report uses — this form's
+  // own PDF is otherwise just the bare government form with no cover of its own.
+  const coverBytes = await buildCoverPageBytes(hydrated, ROOFCERT.title, ROOFCERT.code);
+  const coverDoc = await PDFDocument.load(coverBytes);
+  const finalDoc = await PDFDocument.create();
+  const [coverPage] = await finalDoc.copyPages(coverDoc, [0]);
+  finalDoc.addPage(coverPage);
+  const filledDoc = await PDFDocument.load(bytes);
+  const formPages = await finalDoc.copyPages(filledDoc, filledDoc.getPageIndices());
+  formPages.forEach((p) => finalDoc.addPage(p));
+  const finalBytes = await finalDoc.save();
+  return new Blob([finalBytes], { type: 'application/pdf' });
 }
