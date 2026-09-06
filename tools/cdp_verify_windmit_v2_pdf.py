@@ -181,6 +181,7 @@ def main():
 
               const getText = (n) => { try { return form.getTextField(n).getText(); } catch (e) { return `<err:${e.message}>`; } };
               const isChecked = (n) => { try { return form.getCheckBox(n).isChecked(); } catch (e) { return `<err:${e.message}>`; } };
+              const getDA = (n) => { try { return form.getTextField(n).acroField.getDefaultAppearance(); } catch (e) { return `<err:${e.message}>`; } };
 
               const out = {
                 owner_name: getText('Owner Name'),
@@ -220,6 +221,8 @@ def main():
                 insp_license_type: getText('License Type'),
                 insp_qualification_home: isChecked('Home inspector licensed under Section 4688314 Florida Statutes who has completed the statutory number of hours of hurricane mitigation training'),
                 print_name_I: getText('I'),
+                da_ownerName: getDA('Owner Name'),
+                da_q9grid: getDA('Windows or Entry DoorsVerified cyclic pressure  large missile 9 lb for windows doors45 lb for skylights'),
               };
               return JSON.stringify(out, null, 2);
             })()

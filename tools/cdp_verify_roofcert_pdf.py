@@ -141,6 +141,7 @@ def main():
 
               const getText = (n) => { try { return form.getTextField(n).getText(); } catch (e) { return `<err:${e.message}>`; } };
               const isChecked = (n) => { try { return form.getCheckBox(n).isChecked(); } catch (e) { return `<err:${e.message}>`; } };
+              const getDA = (n) => { try { return form.getTextField(n).acroField.getDefaultAppearance(); } catch (e) { return `<err:${e.message}>`; } };
 
               const out = {
                 owner_name: getText('ApplicantInsured Name'),
@@ -160,6 +161,7 @@ def main():
                 additional_comments: getText('Additional CommentsObservations use additional pages as needed'),
                 insp_title: getText('Title'),
                 insp_company: getText('Company Name'),
+                da_ownerName: getDA('ApplicantInsured Name'),
               };
               return JSON.stringify(out, null, 2);
             })()

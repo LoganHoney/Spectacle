@@ -61,9 +61,19 @@ async function loadScript(src) {
   loadedScripts.add(src);
 }
 
-function setText(form, name, value) {
+// Every text field on this master has its font size set to 0 (auto-shrink)
+// by default, which produces inconsistent — often tiny — text depending on
+// each field's box dimensions. Force a fixed, readable size for everything
+// this app fills in, regardless of what auto-size would have picked.
+const FONT_SIZE = 9;
+
+function setText(form, name, value, fontSize = FONT_SIZE) {
   if (value === undefined || value === null || value === '') return;
-  try { form.getTextField(name).setText(String(value)); } catch { /* field not in this build — skip, not fatal */ }
+  try {
+    const tf = form.getTextField(name);
+    tf.setFontSize(fontSize);
+    tf.setText(String(value));
+  } catch { /* field not in this build — skip, not fatal */ }
 }
 
 function setCheck(form, name, checked = true) {

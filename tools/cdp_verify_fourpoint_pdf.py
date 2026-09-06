@@ -211,6 +211,7 @@ def main():
 
               const getText = (n) => { try { return form.getTextField(n).getText(); } catch (e) { return `<err:${e.message}>`; } };
               const isChecked = (n) => { try { return form.getCheckBox(n).isChecked(); } catch (e) { return `<err:${e.message}>`; } };
+              const getDA = (n) => { try { return form.getTextField(n).acroField.getDefaultAppearance(); } catch (e) { return `<err:${e.message}>`; } };
               const getRadio = (n) => { try { return form.getRadioGroup(n).getSelected(); } catch (e) { return `<err:${e.message}>`; } };
 
               const out = {
@@ -263,6 +264,8 @@ def main():
                 additional_comments: getText('Additional CommentsObservations use additional pages if needed'),
                 insp_title: getText('Title'),
                 insp_company: getText('Company Name'),
+                da_ownerName: getDA('InsuredApplicant Name'),
+                da_plumbCellX: getDA('Satisfactory_2'),
               };
               return JSON.stringify(out, null, 2);
             })()
