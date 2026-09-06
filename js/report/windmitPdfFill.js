@@ -62,19 +62,11 @@ async function loadScript(src) {
 }
 
 // Every text field on this master has its font size set to 0 (auto-shrink)
-// by default, which produces inconsistent — often tiny — text depending on
-// each field's box dimensions. Force a fixed, readable size for everything
-// this app fills in, regardless of what auto-size would have picked.
+// and plain black by default. Force a fixed, readable navy-bold for
+// everything this app fills in, so an answer always reads as obviously
+// distinct from the form's own printed text.
 const FONT_SIZE = 9;
-
-function setText(form, name, value, fontSize = FONT_SIZE) {
-  if (value === undefined || value === null || value === '') return;
-  try {
-    const tf = form.getTextField(name);
-    tf.setFontSize(fontSize);
-    tf.setText(String(value));
-  } catch { /* field not in this build — skip, not fatal */ }
-}
+const NAVY_BOLD = '0 0 0.5 rg';
 
 function setCheck(form, name, checked = true) {
   if (!name || !checked) return;
@@ -330,41 +322,58 @@ const QUALIFICATION_LICENSE_TYPE = {
 /** Fills the real Wind Mit PDF from `values` (inspection.forms.windmit) and returns a Blob. */
 export async function buildWindMitOfficialPdf(values = {}) {
   await loadVendor();
-  const { PDFDocument } = window.PDFLib;
+  const { PDFDocument, StandardFonts } = window.PDFLib;
 
   const templateBytes = await fetchWithRetry('js/vendor/forms/oir-b1-1802-fillable-v2.pdf', 'arraybuffer');
   const pdfDoc = await PDFDocument.load(templateBytes);
   const form = pdfDoc.getForm();
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Closure (not top-level) so it can reach boldFont without threading it
+  // through every call site. Order matters here — confirmed via a canvas
+  // pixel-level render check on the 4-Point build, not just reading the DA
+  // string back: setText, then updateAppearances(font) to bake the glyphs,
+  // then setDefaultAppearance so the DA reflects navy-bold for any later
+  // re-render (e.g. a viewer with NeedAppearances set) too.
+  function setText(name, value, fontSize = FONT_SIZE) {
+    if (value === undefined || value === null || value === '') return;
+    try {
+      const tf = form.getTextField(name);
+      tf.setText(String(value));
+      tf.updateAppearances(boldFont);
+      tf.acroField.setDefaultAppearance(`${NAVY_BOLD} /${boldFont.name} ${fontSize} Tf`);
+    } catch { /* field not in this build — skip, not fatal */ }
+  }
 
   // ---- Owner Information ----
-  setText(form, 'Inspection Date', values.inspection_date);
-  setText(form, 'Owner Name', values.owner_name);
-  setText(form, 'Contact Person', values.contact_person);
-  setText(form, 'Address', values.address);
-  setText(form, 'Home Phone', values.home_phone);
-  setText(form, 'City', values.city);
-  setText(form, 'Zip', values.zip);
-  setText(form, 'Work Phone', values.work_phone);
-  setText(form, 'County', values.county);
-  setText(form, 'Cell Phone', values.cell_phone);
-  setText(form, 'Insurance Company', values.insurance_co);
-  setText(form, 'Policy', values.policy_no);
-  setText(form, 'Year of Home', values.year_of_home);
-  setText(form, ' of Stories', values.stories);
-  setText(form, 'Email', values.email);
+  setText('Inspection Date', values.inspection_date);
+  setText('Owner Name', values.owner_name);
+  setText('Contact Person', values.contact_person);
+  setText('Address', values.address);
+  setText('Home Phone', values.home_phone);
+  setText('City', values.city);
+  setText('Zip', values.zip);
+  setText('Work Phone', values.work_phone);
+  setText('County', values.county);
+  setText('Cell Phone', values.cell_phone);
+  setText('Insurance Company', values.insurance_co);
+  setText('Policy', values.policy_no);
+  setText('Year of Home', values.year_of_home);
+  setText(' of Stories', values.stories);
+  setText('Email', values.email);
 
   // ---- Q1 Building Code ----
   setOneOf(form, Q1_ANSWER_FIELDS, values.q1_answer);
   if (['A', 'B', 'C'].includes(values.q1_answer)) {
-    setText(form, Q1_YEAR_BUILT_FIELDS[values.q1_answer], values.q1_year_built);
+    setText(Q1_YEAR_BUILT_FIELDS[values.q1_answer], values.q1_year_built);
     if (values.q1_answer === 'C') {
-      setText(form, Q1_PERMIT_DATE_C_FIELD, values.q1_permit_date);
+      setText(Q1_PERMIT_DATE_C_FIELD, values.q1_permit_date);
     } else {
       const { mm, dd, yyyy } = splitDate(values.q1_permit_date);
       const f = Q1_PERMIT_DATE_SPLIT_FIELDS[values.q1_answer];
-      setText(form, f.mm, mm);
-      setText(form, f.dd, dd);
-      setText(form, f.yyyy, yyyy);
+      setText(f.mm, mm);
+      setText(f.dd, dd);
+      setText(f.yyyy, yyyy);
     }
   }
 
@@ -379,20 +388,20 @@ export async function buildWindMitOfficialPdf(values = {}) {
     if (!fields || !cell) continue;
     if (cell.inuse) setCheck(form, fields.inuse);
     const { mm, dd, yyyy } = splitDate(cell.permit);
-    setText(form, fields.mm, mm);
-    setText(form, fields.dd, dd);
-    setText(form, fields.yyyy, yyyy);
-    setText(form, fields.approval, cell.approval);
-    setText(form, fields.year, cell.year);
+    setText(fields.mm, mm);
+    setText(fields.dd, dd);
+    setText(fields.yyyy, yyyy);
+    setText(fields.approval, cell.approval);
+    setText(fields.year, cell.year);
   }
-  setText(form, Q4_OTHER_DESC_FIELD, values.q4_other_desc);
+  setText(Q4_OTHER_DESC_FIELD, values.q4_other_desc);
   setOneOf(form, Q4_2_ANSWER_FIELDS, values.q4_2_answer);
 
   // ---- Q5-Q6 ----
   setOneOf(form, Q5_ANSWER_FIELDS, values.q5_answer);
-  setText(form, Q5_OTHER_DESC_FIELD, values.q5_other_desc);
+  setText(Q5_OTHER_DESC_FIELD, values.q5_other_desc);
   setOneOf(form, Q6_ANSWER_FIELDS, values.q6_answer);
-  setText(form, Q6_OTHER_DESC_FIELD, values.q6_other_desc);
+  setText(Q6_OTHER_DESC_FIELD, values.q6_other_desc);
   if (Array.isArray(values.q6_min_conditions)) {
     values.q6_min_conditions.forEach((label) => {
       const idx = WINDMIT_Q6_MIN_OPTIONS.indexOf(label);
@@ -402,10 +411,10 @@ export async function buildWindMitOfficialPdf(values = {}) {
 
   // ---- Q7-Q8 ----
   setOneOf(form, Q7_ANSWER_FIELDS, values.q7_answer);
-  setText(form, 'Total length of nonhip features', values.q7_nonhip_len);
-  setText(form, 'feet Total roof system perimeter', values.q7_perimeter);
-  setText(form, '212 Roof area with slope less than 212', values.q7_flat_area);
-  setText(form, 'sq ft Total roof area', values.q7_total_area);
+  setText('Total length of nonhip features', values.q7_nonhip_len);
+  setText('feet Total roof system perimeter', values.q7_perimeter);
+  setText('212 Roof area with slope less than 212', values.q7_flat_area);
+  setText('sq ft Total roof area', values.q7_total_area);
   setOneOf(form, Q8_ANSWER_FIELDS, values.q8_answer);
   if (Array.isArray(values.q8_methods)) {
     values.q8_methods.forEach((label) => {
@@ -424,7 +433,7 @@ export async function buildWindMitOfficialPdf(values = {}) {
     const fields = Q9_TABLE_FIELDS[row];
     if (!fields || !cols) continue;
     for (const [colId, name] of Object.entries(fields)) {
-      if (cols[colId]) setText(form, name, 'X');
+      if (cols[colId]) setText(name, 'X');
     }
   }
   setOneOf(form, Q9_ANSWER_FIELDS, values.q9_answer);
@@ -433,28 +442,18 @@ export async function buildWindMitOfficialPdf(values = {}) {
   }
 
   // ---- Qualified Inspector ----
-  setText(form, 'Qualified Inspector Name', values.insp_name);
-  setText(form, 'License or Certificate', values.insp_license_no);
-  setText(form, 'Inspection Company', values.insp_company);
-  setText(form, 'Phone', values.insp_phone);
+  setText('Qualified Inspector Name', values.insp_name);
+  setText('License or Certificate', values.insp_license_no);
+  setText('Inspection Company', values.insp_company);
+  setText('Phone', values.insp_phone);
   setOneOf(form, INSP_QUALIFICATION_FIELDS, values.insp_qualification);
-  if (values.insp_qualification) setText(form, 'License Type', QUALIFICATION_LICENSE_TYPE[values.insp_qualification] || '');
+  if (values.insp_qualification) setText('License Type', QUALIFICATION_LICENSE_TYPE[values.insp_qualification] || '');
 
   // ---- Certification / signatures (page index 5) ----
-  setText(form, 'I', values.insp_name); // "I, ___(print name)___, am a qualified inspector..."
-  setText(form, 'contractors and professional engineers only I had my employee', values.insp_employee_name);
-  setText(form, 'Date', values.insp_date);
-  setText(form, 'Date_2', values.owner_sign_date);
-
-  try {
-    form.updateFieldAppearances();
-  } catch {
-    // Same fallback as fourPointPdfFill.js — if any leftover field trips
-    // pdf-lib's blanket appearance pass, let viewers regenerate appearances
-    // themselves instead (every filled value still displays correctly).
-    const { PDFName, PDFBool } = window.PDFLib;
-    form.acroForm.dict.set(PDFName.of('NeedAppearances'), PDFBool.True);
-  }
+  setText('I', values.insp_name); // "I, ___(print name)___, am a qualified inspector..."
+  setText('contractors and professional engineers only I had my employee', values.insp_employee_name);
+  setText('Date', values.insp_date);
+  setText('Date_2', values.owner_sign_date);
 
   // Signatures are drawn as images over their (blank) placeholder fields —
   // an AcroForm text field can't hold a drawn signature, only typed text.
@@ -462,6 +461,10 @@ export async function buildWindMitOfficialPdf(values = {}) {
   await drawSignature(pdfDoc, pages[5], values.insp_signature, 169.9, 591, 175.1, 16.4);
   await drawSignature(pdfDoc, pages[5], values.owner_signature, 89.2, 446.5, 208.9, 11.9);
 
+  // Every text field's appearance was already generated per-field above
+  // (setText calls updateAppearances(boldFont) itself) — without this flag,
+  // save() would redundantly re-run its own blanket appearance pass and
+  // undo the navy-bold styling with default black.
   const bytes = await pdfDoc.save({ updateFieldAppearances: false });
   return new Blob([bytes], { type: 'application/pdf' });
 }
